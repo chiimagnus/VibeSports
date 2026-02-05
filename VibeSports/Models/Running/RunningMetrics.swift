@@ -6,7 +6,6 @@ struct RunningMetricsSnapshot: Sendable, Equatable {
     var speedMetersPerSecond: Double
     var speedKilometersPerHour: Double
     var steps: Int
-    var calories: Double
     var isCloseUpMode: Bool
     var debugText: String
 }
@@ -25,7 +24,6 @@ struct RunningMetrics: Sendable, Equatable {
     var configuration = Configuration()
     var speedModel = RunningSpeedModel()
     var stepDetector = RunningStepDetector()
-    var caloriesEstimator = CaloriesEstimator()
 
     private var lastUpdateTime: Date?
     private var lastQuality: Double = 0
@@ -37,7 +35,6 @@ struct RunningMetrics: Sendable, Equatable {
     mutating func reset() {
         speedModel = RunningSpeedModel()
         stepDetector.reset()
-        caloriesEstimator.reset()
         lastUpdateTime = nil
         lastQuality = 0
         previousPositions.removeAll(keepingCapacity: true)
@@ -45,7 +42,7 @@ struct RunningMetrics: Sendable, Equatable {
         shoulderDistance = nil
     }
 
-    mutating func ingest(pose: Pose?, now: Date, userWeightKg: Double) -> RunningMetricsSnapshot {
+    mutating func ingest(pose: Pose?, now: Date) -> RunningMetricsSnapshot {
         let dt: TimeInterval
         if let lastUpdateTime {
             dt = max(0.001, now.timeIntervalSince(lastUpdateTime))
@@ -64,11 +61,6 @@ struct RunningMetrics: Sendable, Equatable {
         speedModel.update(isMoving: isMoving, deltaTime: dt)
 
         stepDetector.ingest(pose: pose, movementQuality: smoothedQuality, now: now)
-        caloriesEstimator.ingest(
-            speedMetersPerSecond: speedModel.speedMetersPerSecond,
-            userWeightKg: userWeightKg,
-            deltaTime: dt
-        )
 
         let speedKmh = speedModel.speedMetersPerSecond * 3.6
 
@@ -86,7 +78,6 @@ struct RunningMetrics: Sendable, Equatable {
             speedMetersPerSecond: speedModel.speedMetersPerSecond,
             speedKilometersPerHour: speedKmh,
             steps: stepDetector.stepCount,
-            calories: caloriesEstimator.caloriesBurned,
             isCloseUpMode: isCloseUpMode,
             debugText: debugText
         )
@@ -156,4 +147,3 @@ struct RunningMetrics: Sendable, Equatable {
         return pow(normalized, 1.5)
     }
 }
-

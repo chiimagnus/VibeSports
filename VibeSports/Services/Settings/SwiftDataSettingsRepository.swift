@@ -4,7 +4,6 @@ import SwiftData
 @MainActor
 final class SwiftDataSettingsRepository: SettingsRepository {
     private enum LegacyKeys {
-        static let userWeightKg = "runner.userWeightKg"
         static let showPoseOverlay = "runner.debug.showPoseOverlay"
         static let mirrorPoseOverlay = "runner.debug.mirrorPoseOverlay"
     }
@@ -21,16 +20,9 @@ final class SwiftDataSettingsRepository: SettingsRepository {
     func load() throws -> SettingsSnapshot {
         let settings = try fetchOrCreate()
         return SettingsSnapshot(
-            userWeightKg: settings.userWeightKg,
             showPoseOverlay: settings.showPoseOverlay,
             mirrorPoseOverlay: settings.mirrorPoseOverlay
         )
-    }
-
-    func updateUserWeightKg(_ weightKg: Double) throws {
-        let settings = try fetchOrCreate()
-        settings.userWeightKg = max(0, weightKg)
-        try modelContext.save()
     }
 
     func updateShowPoseOverlay(_ isEnabled: Bool) throws {
@@ -63,7 +55,6 @@ final class SwiftDataSettingsRepository: SettingsRepository {
             guard count == 0 else { return }
 
             let seeded = AppSettings(
-                userWeightKg: legacyDouble(forKey: LegacyKeys.userWeightKg) ?? 60,
                 showPoseOverlay: legacyBool(forKey: LegacyKeys.showPoseOverlay) ?? false,
                 mirrorPoseOverlay: legacyBool(forKey: LegacyKeys.mirrorPoseOverlay) ?? false
             )
@@ -72,17 +63,6 @@ final class SwiftDataSettingsRepository: SettingsRepository {
         } catch {
             // Avoid crashing on best-effort migration; callers can still load() and create defaults.
         }
-    }
-
-    private func legacyDouble(forKey key: String) -> Double? {
-        guard let object = userDefaults.object(forKey: key) else { return nil }
-        if let number = object as? NSNumber {
-            return number.doubleValue
-        }
-        if let value = object as? Double {
-            return value
-        }
-        return nil
     }
 
     private func legacyBool(forKey key: String) -> Bool? {
@@ -96,4 +76,3 @@ final class SwiftDataSettingsRepository: SettingsRepository {
         return nil
     }
 }
-

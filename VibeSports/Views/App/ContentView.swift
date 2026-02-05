@@ -8,7 +8,7 @@ struct ContentView: View {
     }
 
     var body: some View {
-        RunnerGameHomeView(dependencies: dependencies)
+        RunnerGameView(dependencies: dependencies)
     }
 }
 

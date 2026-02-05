@@ -1,10 +1,3 @@
-//
-//  PoseOverlayView.swift
-//  VibeSports
-//
-//  Created by chii_magnus on 2026/2/5.
-//
-
 import SwiftUI
 
 struct PoseOverlayView: View {
