@@ -15,6 +15,9 @@ final class RunnerGameViewModel: ObservableObject {
     @Published private(set) var metrics: RunningMetricsSnapshot
     @Published private(set) var latestPose: Pose?
 
+    @Published private(set) var showPoseOverlay: Bool = false
+    @Published private(set) var mirrorCamera: Bool = true
+
     private let clock: any Clock
     private let settingsRepository: any SettingsRepository
 
@@ -96,9 +99,27 @@ final class RunnerGameViewModel: ObservableObject {
         do {
             let settings = try settingsRepository.load()
             userWeightKg = settings.userWeightKg
+            showPoseOverlay = settings.showPoseOverlay
+            mirrorCamera = settings.mirrorPoseOverlay
         } catch {
             userWeightKg = 60
+            showPoseOverlay = false
+            mirrorCamera = true
         }
+    }
+
+    func updateShowPoseOverlay(_ isEnabled: Bool) {
+        showPoseOverlay = isEnabled
+        do {
+            try settingsRepository.updateShowPoseOverlay(isEnabled)
+        } catch {}
+    }
+
+    func updateMirrorCamera(_ isEnabled: Bool) {
+        mirrorCamera = isEnabled
+        do {
+            try settingsRepository.updateMirrorPoseOverlay(isEnabled)
+        } catch {}
     }
 
     private func handlePose(_ pose: Pose?) {
@@ -112,4 +133,3 @@ final class RunnerGameViewModel: ObservableObject {
         sceneRenderer.setSpeedMetersPerSecond(snapshot.speedMetersPerSecond)
     }
 }
-

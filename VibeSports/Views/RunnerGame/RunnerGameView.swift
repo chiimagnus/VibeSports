@@ -28,6 +28,20 @@ struct RunnerGameView: View {
             }
         }
         .frame(minWidth: 900, minHeight: 600)
+        .focusedSceneValue(
+            \.showPoseOverlay,
+            Binding(
+                get: { viewModel.showPoseOverlay },
+                set: { viewModel.updateShowPoseOverlay($0) }
+            )
+        )
+        .focusedSceneValue(
+            \.mirrorCamera,
+            Binding(
+                get: { viewModel.mirrorCamera },
+                set: { viewModel.updateMirrorCamera($0) }
+            )
+        )
         .onDisappear {
             viewModel.stopIfNeeded()
         }
@@ -76,11 +90,19 @@ struct RunnerGameView: View {
     private var cameraPreview: some View {
         switch viewModel.cameraSession.state {
         case .running:
-            CameraPreviewView(session: viewModel.cameraSession.captureSession, isMirroredHorizontally: true)
+            CameraPreviewView(
+                session: viewModel.cameraSession.captureSession,
+                isMirroredHorizontally: viewModel.mirrorCamera
+            )
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .strokeBorder(.white.opacity(0.12))
+                }
+                .overlay {
+                    if viewModel.showPoseOverlay, let pose = viewModel.latestPose {
+                        PoseOverlayView(pose: pose, isMirroredHorizontally: viewModel.mirrorCamera)
+                    }
                 }
                 .frame(width: 260, height: 180)
                 .shadow(color: .black.opacity(0.25), radius: 18, y: 10)

@@ -21,5 +21,8 @@ struct VibeSportsApp: App {
             ContentView(dependencies: dependencies)
         }
         .modelContainer(modelContainer)
+        .commands {
+            DebugCommands()
+        }
     }
 }

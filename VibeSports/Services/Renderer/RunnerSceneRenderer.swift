@@ -85,6 +85,7 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
         cameraNode.camera = camera
         camera.fieldOfView = 70
         cameraNode.position = SCNVector3(0, 2.2, 0)
+        cameraNode.look(at: SCNVector3(0, 1.7, 8))
         scene.rootNode.addChildNode(cameraNode)
 
         segmentNodes = pool.segments.map { segment in
@@ -103,6 +104,7 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
         pool = TerrainSegmentPool(activeSegments: configuration.activeSegments, segmentLength: configuration.segmentLength)
 
         cameraNode.position = SCNVector3(0, 2.2, 0)
+        cameraNode.look(at: SCNVector3(0, 1.7, 8))
         for (index, segment) in pool.segments.enumerated() where index < segmentNodes.count {
             updateSegmentNode(segmentNodes[index], startZ: segment.startZ)
         }
@@ -124,15 +126,19 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
         lastTime = time
 
         let speed = lock.withLock { $0.speedMetersPerSecond }
-        guard speed > 0 else { return }
+        if speed > 0 {
+            let advance = speed * dt
+            cameraNode.position.z += CGFloat(advance)
 
-        let advance = speed * dt
-        cameraNode.position.z += CGFloat(advance)
+            let bob = sin(time * 6.0) * min(0.12, speed * 0.02)
+            let sway = cos(time * 3.5) * min(0.08, speed * 0.015)
+            cameraNode.position.y = 2.2 + CGFloat(bob)
+            cameraNode.position.x = CGFloat(sway)
+        } else {
+            cameraNode.position.y = 2.2
+            cameraNode.position.x = 0
+        }
 
-        let bob = sin(time * 6.0) * min(0.12, speed * 0.02)
-        let sway = cos(time * 3.5) * min(0.08, speed * 0.015)
-        cameraNode.position.y = 2.2 + CGFloat(bob)
-        cameraNode.position.x = CGFloat(sway)
         cameraNode.look(at: SCNVector3(0, 1.7, cameraNode.position.z + 8))
 
         let cameraZ = Double(cameraNode.position.z)
