@@ -40,7 +40,7 @@ struct VibeSportsApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView(dependencies: dependencies)
+            RunnerGameView(dependencies: dependencies)
         }
         .modelContainer(modelContainer)
         .commands {

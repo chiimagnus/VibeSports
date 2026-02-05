@@ -67,7 +67,7 @@ struct RunnerGameView: View {
             Spacer()
 
             if viewModel.mode == .running {
-                Button("结束") {
+                Button("End") {
                     viewModel.stopTapped()
                 }
                 .buttonStyle(.bordered)
@@ -81,15 +81,15 @@ struct RunnerGameView: View {
     private var statusText: some View {
         switch viewModel.cameraSession.state {
         case .idle:
-            Text("未开始")
+            Text("Not started")
         case .requestingAuthorization:
-            Text("请求摄像头权限中…")
+            Text("Requesting camera permission…")
         case .unauthorized:
-            Text("未获得摄像头权限（系统设置 → 隐私与安全性 → 摄像头）")
+            Text("Camera access denied (System Settings → Privacy & Security → Camera)")
         case .failed(let message):
-            Text("摄像头启动失败：\(message)")
+            Text("Camera failed to start: \(message)")
         case .running:
-            Text("运动中 • \(String(format: "%.1f", viewModel.metrics.speedKilometersPerHour)) km/h")
+            Text("Running • \(String(format: "%.1f", viewModel.metrics.speedKilometersPerHour)) km/h")
         }
     }
 
@@ -134,11 +134,11 @@ struct RunnerGameView: View {
 
     private var idleOverlay: some View {
         VStack(spacing: 12) {
-            Text("准备开始")
+            Text("Ready")
                 .font(.title2.bold())
-            Text("点击开始后，将使用摄像头姿态检测来驱动 3D 场景。")
+            Text("Press Start to use camera pose detection to drive the 3D scene.")
                 .foregroundStyle(.secondary)
-            Button("开始运动") {
+            Button("Start") {
                 viewModel.startTapped()
             }
             .buttonStyle(.borderedProminent)

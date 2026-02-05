@@ -2,12 +2,13 @@ import CoreGraphics
 import Foundation
 
 struct RunningMetricsSnapshot: Sendable, Equatable {
+    var poseDetected: Bool
     var movementQualityPercent: Int
     var speedMetersPerSecond: Double
     var speedKilometersPerHour: Double
     var steps: Int
     var isCloseUpMode: Bool
-    var debugText: String
+    var shoulderDistance: Double?
 }
 
 struct RunningMetrics: Sendable, Equatable {
@@ -43,6 +44,8 @@ struct RunningMetrics: Sendable, Equatable {
     }
 
     mutating func ingest(pose: Pose?, now: Date) -> RunningMetricsSnapshot {
+        let poseDetected = pose != nil
+
         let dt: TimeInterval
         if let lastUpdateTime {
             dt = max(0.001, now.timeIntervalSince(lastUpdateTime))
@@ -64,22 +67,14 @@ struct RunningMetrics: Sendable, Equatable {
 
         let speedKmh = speedModel.speedMetersPerSecond * 3.6
 
-        let debugText: String = {
-            if pose == nil {
-                return "未检测到有效姿势"
-            }
-            let modeText = isCloseUpMode ? "近距离" : "标准"
-            let shoulderText = shoulderDistance.map { String(format: "%.3f", $0) } ?? "-"
-            return "\(modeText) | 质量 \(Int(smoothedQuality * 100))% | 肩距 \(shoulderText)"
-        }()
-
         return RunningMetricsSnapshot(
+            poseDetected: poseDetected,
             movementQualityPercent: Int((smoothedQuality * 100).rounded()),
             speedMetersPerSecond: speedModel.speedMetersPerSecond,
             speedKilometersPerHour: speedKmh,
             steps: stepDetector.stepCount,
             isCloseUpMode: isCloseUpMode,
-            debugText: debugText
+            shoulderDistance: shoulderDistance
         )
     }
 

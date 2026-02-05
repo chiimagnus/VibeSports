@@ -34,12 +34,13 @@ final class RunnerGameViewModel: ObservableObject {
         self.cameraSession = dependencies.makeCameraSession()
         self.sceneRenderer = dependencies.makeRunnerSceneRenderer()
         self.metrics = RunningMetricsSnapshot(
+            poseDetected: false,
             movementQualityPercent: 0,
             speedMetersPerSecond: 0,
             speedKilometersPerHour: 0,
             steps: 0,
             isCloseUpMode: false,
-            debugText: "尚未开始"
+            shoulderDistance: nil
         )
 
         cameraSession.objectWillChange
@@ -60,7 +61,6 @@ final class RunnerGameViewModel: ObservableObject {
     func startTapped() {
         guard mode != .running else { return }
         mode = .running
-        metrics.debugText = "正在准备摄像头"
 
         Task { [weak self] in
             guard let self else { return }
@@ -86,12 +86,13 @@ final class RunnerGameViewModel: ObservableObject {
         runningMetrics.reset()
         latestPose = nil
         metrics = RunningMetricsSnapshot(
+            poseDetected: false,
             movementQualityPercent: 0,
             speedMetersPerSecond: 0,
             speedKilometersPerHour: 0,
             steps: 0,
             isCloseUpMode: false,
-            debugText: "已结束"
+            shoulderDistance: nil
         )
     }
 

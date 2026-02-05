@@ -8,19 +8,19 @@ struct DebugCommands: Commands {
     var body: some Commands {
         CommandMenu("Debug") {
             if let showPoseOverlay {
-                Toggle("骨骼叠加", isOn: showPoseOverlay)
+                Toggle("Pose Overlay", isOn: showPoseOverlay)
                     .keyboardShortcut("p", modifiers: [.command, .shift])
             } else {
-                Button("骨骼叠加") {}
+                Button("Pose Overlay") {}
                     .disabled(true)
                     .keyboardShortcut("p", modifiers: [.command, .shift])
             }
 
             if let mirrorCamera {
-                Toggle("水平镜像", isOn: mirrorCamera)
+                Toggle("Mirror Camera", isOn: mirrorCamera)
                     .keyboardShortcut("m", modifiers: [.command, .shift])
             } else {
-                Button("水平镜像") {}
+                Button("Mirror Camera") {}
                     .disabled(true)
                     .keyboardShortcut("m", modifiers: [.command, .shift])
             }
