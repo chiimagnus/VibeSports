@@ -145,7 +145,7 @@ Expected: PASS（真机/模拟运行验证画面）
 
 ### P1：运动指标算法（对标 cam-run-master）
 
-#### Task 7: RunningMetrics（速度/步数/热量/模式）
+#### ✅Task 7: RunningMetrics（速度/步数/热量/模式）
 
 **Files:**
 - Create: `VibeSports/Domain/Running/RunningMetrics.swift`
@@ -179,7 +179,7 @@ Expected: FAIL（类型不存在/行为不符）
 
 ### P1：3D 无限场景（SceneKit）
 
-#### Task 8: RunnerSceneRenderer（地形段复用 + 相机动画）
+#### ✅Task 8: RunnerSceneRenderer（地形段复用 + 相机动画）
 
 **Files:**
 - Create: `VibeSports/Renderer/RunnerScene/RunnerSceneRenderer.swift`
@@ -205,7 +205,7 @@ Expected: FAIL
 
 ### P1：SwiftUI 组合与会话闭环
 
-#### Task 9: RunnerGameFeature（Home → Running → Stop）
+#### ✅Task 9: RunnerGameFeature（Home → Running → Stop）
 
 **Files:**
 - Create: `VibeSports/Features/RunnerGame/RunnerGameHomeView.swift`
