@@ -17,11 +17,14 @@ final class RunnerGameViewModel: ObservableObject {
 
     @Published private(set) var showPoseOverlay: Bool = false
     @Published private(set) var mirrorCamera: Bool = true
+    @Published private(set) var poseStabilizationEnabled: Bool = true
+    @Published private(set) var stabilizedPose: Pose?
 
     private let clock: any Clock
     private let settingsRepository: any SettingsRepository
 
     private var runningMetrics = RunningMetrics()
+    private var poseStabilizer = PoseStabilizer()
 
     private var cancellables: Set<AnyCancellable> = []
 
@@ -97,9 +100,11 @@ final class RunnerGameViewModel: ObservableObject {
             let settings = try settingsRepository.load()
             showPoseOverlay = settings.showPoseOverlay
             mirrorCamera = settings.mirrorPoseOverlay
+            poseStabilizationEnabled = settings.poseStabilizationEnabled
         } catch {
             showPoseOverlay = false
             mirrorCamera = true
+            poseStabilizationEnabled = true
         }
     }
 
@@ -117,8 +122,24 @@ final class RunnerGameViewModel: ObservableObject {
         } catch {}
     }
 
+    func updatePoseStabilizationEnabled(_ isEnabled: Bool) {
+        poseStabilizationEnabled = isEnabled
+        poseStabilizer.reset()
+        stabilizedPose = nil
+        do {
+            try settingsRepository.updatePoseStabilizationEnabled(isEnabled)
+        } catch {}
+    }
+
     private func handlePose(_ pose: Pose?) {
         latestPose = pose
+
+        if poseStabilizationEnabled {
+            stabilizedPose = poseStabilizer.ingest(pose: pose, now: clock.now)
+        } else {
+            stabilizedPose = pose
+        }
+
         let snapshot = runningMetrics.ingest(
             pose: pose,
             now: clock.now

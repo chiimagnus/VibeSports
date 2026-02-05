@@ -42,6 +42,13 @@ struct RunnerGameView: View {
                 set: { viewModel.updateMirrorCamera($0) }
             )
         )
+        .focusedSceneValue(
+            \.poseStabilizationEnabled,
+            Binding(
+                get: { viewModel.poseStabilizationEnabled },
+                set: { viewModel.updatePoseStabilizationEnabled($0) }
+            )
+        )
         .onDisappear {
             viewModel.stopIfNeeded()
         }
@@ -100,7 +107,8 @@ struct RunnerGameView: View {
                         .strokeBorder(.white.opacity(0.12))
                 }
                 .overlay {
-                    if viewModel.showPoseOverlay, let pose = viewModel.latestPose {
+                    let pose = viewModel.poseStabilizationEnabled ? viewModel.stabilizedPose : viewModel.latestPose
+                    if viewModel.showPoseOverlay, let pose {
                         PoseOverlayView(pose: pose, isMirroredHorizontally: viewModel.mirrorCamera)
                     }
                 }
