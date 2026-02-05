@@ -1,43 +1,42 @@
 ## VibeSports
-我想开发一个提醒我、监测我运动的app，什么时候提醒我运动呢？那就是在我开发使用AI IDE开发软件的时候啦！比如我在等待codex、Claude code、cursor ide、GitHub copilot等AI IDE输出内容和修改代码的时候，这个app需要跳出来告诉我该运动一下了！然后调出摄像头检测我的锻炼——类似于手机上的记录开合跳、深蹲等运动的app那样。
 
-### 核心目标
+一个 macOS 原生「摄像头跑步游戏」（Webcam Runner）的复刻项目：用户主动点击开始后，App 打开摄像头，用 Apple Vision 估计人体姿态，计算“原地跑步”的速度/步数/热量，并驱动一个 3D 无限场景向前推进（类似 `cam-run-master`，但**不使用** Three.js / MediaPipe）。
 
-开发一个 macOS app，在你等待 AI IDE 输出时提醒你运动，并用摄像头检测动作、自动计数。
+## 核心目标（Phase B）
 
-### 触发机制
+- 用户主动点击「开始运动」后，进入跑步会话
+- 摄像头采集视频帧 → Vision 姿态估计 → 运动质量/速度/步数/热量计算
+- 3D 无限场景（地形段循环复用、装饰物、相机抖动/高度随速度变化）
+- 运动指标 UI：Speed / Steps / Calories / Weight（可编辑）
+- 可随时「结束」会话并停止摄像头
 
-- **条件**：白名单 app 在前台 + 空闲超过 N 秒（用户自定义）
-- **白名单**：预设常见 IDE（Cursor、VS Code、Xcode、Terminal 等），用户可删减、新增。
+## Non-goals（当前不做）
 
-### 运动检测
+- AI 陪跑（Phase C 再做：实时建议/个性化反馈/自适应难度等）
+- 任何“自动提醒/强制不可跳过”的工作流（不做前台 App 检测、不做强制覆盖）
+- Apple Watch 集成、多端同步、运动历史统计
+- 第三方动作识别依赖（不引入 MediaPipe）
 
-- **技术**：Apple Vision Framework（原生，无第三方依赖）
-- **动作 1**：手臂上举 → 手腕从低于肩膀升到高于肩膀再回来 = 1 次
-- **动作 2**：深蹲 → 人从画面消失再出现 = 1 次
+## 关键设计要点
 
-### 结束条件（优先级从高到低）
+### 交互与状态机
 
-1. **智能检测**：Accessibility API 监测窗口内容停止变化（AI 输出完成）
-2. **固定次数**：默认 25 次，用户可改
-3. **固定时长**：用户可选
-4. **手动结束**：用户可选
+- `Idle`：未开始，展示说明、体重设置、开始按钮
+- `Running`：摄像头开启 + 姿态检测 + 3D 场景运行 + 指标实时刷新
+- `Stopped`：会话结束，释放摄像头资源并回到 `Idle`
 
-### UI 与交互
+### 运动检测（Apple Vision）
 
-- **提醒形式**：悬浮小窗（默认）或全屏覆盖，用户可选
-- **不可跳过**：提醒弹出后必须完成运动才能继续工作
-- **显示内容**：摄像头画面 + 动作计数
+- 使用 Vision 的人体姿态关键点（全身/上半身可见时都能工作）
+- 标准模式：优先用下肢（膝/踝）节律推导步频
+- 近距离模式：下肢不可见时用上肢摆臂节律推导步频（对标 `cam-run-master` 的 close-up 思路）
 
-### Non-goals（MVP 不做）
+### 3D 场景（原生）
 
-- Apple Watch 集成
-- 多端同步
-- 运动历史统计（可后续加）
+- 采用原生 3D 渲染（优先 SceneKit / `SCNView` 嵌入 SwiftUI，避免使用已废弃的 `SceneView`）
+- 无限地形通过“固定数量地形段 + 回收复用”实现，避免无限节点增长
 
-### 参考项目
-- https://developer.apple.com/documentation/CreateMLComponents/counting-human-body-action-repetitions-in-a-live-video-feed
+## 参考
 
-- 深蹲项目：https://github.com/philippgehrke/SquatCounter
-
-- 跑步项目：https://github.com/Jamesun921/cam-run/blob/master/README.cn.md
+- Web 版参考（目标对齐）：`cam-run-master`（Jamesun921/cam-run）
+- Apple 示例（姿态/计数思路参考）：CreateMLComponents「Counting human body action repetitions in a live video feed」
