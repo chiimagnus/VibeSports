@@ -6,11 +6,27 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXContainerItemProxy section */
+		D841BE5D2F34448E00809205 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D8DA65C22F2A22D8006DB1A4 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D8DA65C92F2A22D8006DB1A4;
+			remoteInfo = VibeSports;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
+		D841BE592F34448E00809205 /* VibeSportsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VibeSportsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D8DA65CA2F2A22D8006DB1A4 /* VibeSports.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VibeSports.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		D841BE5A2F34448E00809205 /* VibeSportsTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = VibeSportsTests;
+			sourceTree = "<group>";
+		};
 		D8DA65CC2F2A22D8006DB1A4 /* VibeSports */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = VibeSports;
@@ -19,6 +35,13 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		D841BE562F34448E00809205 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D8DA65C72F2A22D8006DB1A4 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -33,6 +56,7 @@
 			isa = PBXGroup;
 			children = (
 				D8DA65CC2F2A22D8006DB1A4 /* VibeSports */,
+				D841BE5A2F34448E00809205 /* VibeSportsTests */,
 				D8DA65CB2F2A22D8006DB1A4 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,6 +65,7 @@
 			isa = PBXGroup;
 			children = (
 				D8DA65CA2F2A22D8006DB1A4 /* VibeSports.app */,
+				D841BE592F34448E00809205 /* VibeSportsTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -48,6 +73,29 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		D841BE582F34448E00809205 /* VibeSportsTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D841BE612F34448E00809205 /* Build configuration list for PBXNativeTarget "VibeSportsTests" */;
+			buildPhases = (
+				D841BE552F34448E00809205 /* Sources */,
+				D841BE562F34448E00809205 /* Frameworks */,
+				D841BE572F34448E00809205 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D841BE5E2F34448E00809205 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				D841BE5A2F34448E00809205 /* VibeSportsTests */,
+			);
+			name = VibeSportsTests;
+			packageProductDependencies = (
+			);
+			productName = VibeSportsTests;
+			productReference = D841BE592F34448E00809205 /* VibeSportsTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		D8DA65C92F2A22D8006DB1A4 /* VibeSports */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = D8DA65D72F2A22D9006DB1A4 /* Build configuration list for PBXNativeTarget "VibeSports" */;
@@ -80,6 +128,10 @@
 				LastSwiftUpdateCheck = 2600;
 				LastUpgradeCheck = 2600;
 				TargetAttributes = {
+					D841BE582F34448E00809205 = {
+						CreatedOnToolsVersion = 26.0;
+						TestTargetID = D8DA65C92F2A22D8006DB1A4;
+					};
 					D8DA65C92F2A22D8006DB1A4 = {
 						CreatedOnToolsVersion = 26.0;
 					};
@@ -100,11 +152,19 @@
 			projectRoot = "";
 			targets = (
 				D8DA65C92F2A22D8006DB1A4 /* VibeSports */,
+				D841BE582F34448E00809205 /* VibeSportsTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		D841BE572F34448E00809205 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D8DA65C82F2A22D8006DB1A4 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -115,6 +175,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		D841BE552F34448E00809205 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D8DA65C62F2A22D8006DB1A4 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -124,7 +191,57 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		D841BE5E2F34448E00809205 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D8DA65C92F2A22D8006DB1A4 /* VibeSports */;
+			targetProxy = D841BE5D2F34448E00809205 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		D841BE5F2F34448E00809205 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = RDQHYSDFFG;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.chiimagnus.VibeSportsTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VibeSports.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/VibeSports";
+			};
+			name = Debug;
+		};
+		D841BE602F34448E00809205 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = RDQHYSDFFG;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.chiimagnus.VibeSportsTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VibeSports.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/VibeSports";
+			};
+			name = Release;
+		};
 		D8DA65D52F2A22D9006DB1A4 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -250,9 +367,9 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = VibeSports/VibeSports.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CODE_SIGN_ENTITLEMENTS = VibeSports/VibeSports.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = RDQHYSDFFG;
 				ENABLE_APP_SANDBOX = YES;
@@ -284,9 +401,9 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = VibeSports/VibeSports.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CODE_SIGN_ENTITLEMENTS = VibeSports/VibeSports.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = RDQHYSDFFG;
 				ENABLE_APP_SANDBOX = YES;
@@ -316,6 +433,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		D841BE612F34448E00809205 /* Build configuration list for PBXNativeTarget "VibeSportsTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D841BE5F2F34448E00809205 /* Debug */,
+				D841BE602F34448E00809205 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		D8DA65C52F2A22D8006DB1A4 /* Build configuration list for PBXProject "VibeSports" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
