@@ -3,6 +3,13 @@ import os
 import SceneKit
 
 @MainActor
+protocol RunnerSceneRendering: AnyObject {
+    func attach(to view: SCNView)
+    func setSpeedMetersPerSecond(_ speed: Double)
+    func reset()
+}
+
+@MainActor
 final class RunnerSceneRenderer: ObservableObject {
     struct Configuration: Sendable, Equatable {
         var segmentLength: Double = 10
@@ -42,6 +49,8 @@ final class RunnerSceneRenderer: ObservableObject {
         animator.install(into: scene)
     }
 }
+
+extension RunnerSceneRenderer: RunnerSceneRendering {}
 
 private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
     private let configuration: RunnerSceneRenderer.Configuration

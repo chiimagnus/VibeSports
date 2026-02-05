@@ -3,8 +3,14 @@ import SwiftUI
 struct RunnerGameHomeView: View {
     let dependencies: AppDependencies
 
-    @AppStorage("runner.userWeightKg") private var userWeightKg: Double = 60
-    @State private var isPresentingSession = false
+    @StateObject private var viewModel: RunnerGameHomeViewModel
+
+    init(dependencies: AppDependencies) {
+        self.dependencies = dependencies
+        _viewModel = StateObject(
+            wrappedValue: RunnerGameHomeViewModel(settingsRepository: dependencies.settingsRepository)
+        )
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -20,7 +26,14 @@ struct RunnerGameHomeView: View {
                 HStack {
                     Text("体重")
                     Spacer()
-                    TextField("kg", value: $userWeightKg, format: .number)
+                    TextField(
+                        "kg",
+                        value: Binding(
+                            get: { viewModel.userWeightKg },
+                            set: { viewModel.updateUserWeightKg($0) }
+                        ),
+                        format: .number
+                    )
                         .multilineTextAlignment(.trailing)
                         .frame(width: 120)
                     Text("kg")
@@ -31,7 +44,7 @@ struct RunnerGameHomeView: View {
 
             HStack(spacing: 12) {
                 Button("开始运动") {
-                    isPresentingSession = true
+                    viewModel.startSessionTapped()
                 }
                 .buttonStyle(.borderedProminent)
 
@@ -43,15 +56,15 @@ struct RunnerGameHomeView: View {
         }
         .padding(24)
         .frame(minWidth: 520, minHeight: 360)
-        .sheet(isPresented: $isPresentingSession) {
-            RunnerGameSessionView(
-                dependencies: dependencies,
-                userWeightKg: userWeightKg
-            )
+        .task {
+            viewModel.load()
+        }
+        .sheet(isPresented: $viewModel.isPresentingSession) {
+            RunnerGameSessionView(dependencies: dependencies)
         }
     }
 }
 
 #Preview {
-    RunnerGameHomeView(dependencies: .live())
+    RunnerGameHomeView(dependencies: .preview())
 }

@@ -5,6 +5,20 @@ import QuartzCore
 import os
 
 @MainActor
+protocol CameraSessionProtocol: AnyObject, ObservableObject {
+    associatedtype SessionState: Equatable
+
+    var state: SessionState { get }
+    var statePublisher: AnyPublisher<SessionState, Never> { get }
+
+    var captureSession: AVCaptureSession { get }
+    var posePublisher: AnyPublisher<Pose?, Never> { get }
+
+    func start() async
+    func stop()
+}
+
+@MainActor
 final class CameraSession: NSObject, ObservableObject {
     enum State: Equatable {
         case idle
@@ -20,11 +34,18 @@ final class CameraSession: NSObject, ObservableObject {
 
     var onPose: ((Pose?) -> Void)?
 
+    private let poseSubject = PassthroughSubject<Pose?, Never>()
+
     private let outputQueue = DispatchQueue(label: "com.chiimagnus.vibesports.camera.output")
     private let videoOutput = AVCaptureVideoDataOutput()
-    private let outputHandler = OutputHandler()
+    private let outputHandler: OutputHandler
 
     private var isConfigured = false
+
+    init(poseDetector: any PoseDetecting = PoseDetector()) {
+        self.outputHandler = OutputHandler(poseDetector: poseDetector)
+        super.init()
+    }
 
     func start() async {
         guard state != .running else { return }
@@ -88,8 +109,21 @@ final class CameraSession: NSObject, ObservableObject {
             guard let self else { return }
             Task { @MainActor in
                 self.onPose?(pose)
+                self.poseSubject.send(pose)
             }
         }
+    }
+}
+
+extension CameraSession: CameraSessionProtocol {
+    typealias SessionState = State
+
+    var statePublisher: AnyPublisher<State, Never> {
+        $state.eraseToAnyPublisher()
+    }
+
+    var posePublisher: AnyPublisher<Pose?, Never> {
+        poseSubject.eraseToAnyPublisher()
     }
 }
 
@@ -103,13 +137,18 @@ private final class OutputHandler: NSObject, AVCaptureVideoDataOutputSampleBuffe
     var onPose: ((Pose?) -> Void)?
     var processingInterval: CFTimeInterval = 1.0 / 20.0
 
-    private let poseDetector = PoseDetector()
+    private let poseDetector: any PoseDetecting
     private struct State {
         var isEnabled = false
         var lastProcessTime: CFTimeInterval = 0
     }
 
     private let lock = OSAllocatedUnfairLock(initialState: State())
+
+    init(poseDetector: any PoseDetecting) {
+        self.poseDetector = poseDetector
+        super.init()
+    }
 
     var isEnabled: Bool {
         get { lock.withLock { $0.isEnabled } }

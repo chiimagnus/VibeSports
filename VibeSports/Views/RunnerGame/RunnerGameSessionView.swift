@@ -4,15 +4,11 @@ struct RunnerGameSessionView: View {
     let dependencies: AppDependencies
     @Environment(\.dismiss) private var dismiss
 
-    @AppStorage("runner.userWeightKg") private var userWeightKg: Double = 60
-    @AppStorage("runner.debug.showPoseOverlay") private var showPoseOverlay = false
-    @AppStorage("runner.debug.mirrorPoseOverlay") private var mirrorPoseOverlay = false
-    @StateObject private var session: RunnerGameSession
+    @StateObject private var viewModel: RunnerGameSessionViewModel
 
-    init(dependencies: AppDependencies, userWeightKg: Double) {
+    init(dependencies: AppDependencies) {
         self.dependencies = dependencies
-        _userWeightKg = AppStorage(wrappedValue: userWeightKg, "runner.userWeightKg")
-        _session = StateObject(wrappedValue: RunnerGameSession(dependencies: dependencies, userWeightKg: userWeightKg))
+        _viewModel = StateObject(wrappedValue: RunnerGameSessionViewModel(dependencies: dependencies))
     }
 
     var body: some View {
@@ -22,7 +18,7 @@ struct RunnerGameSessionView: View {
                     .font(.title2.bold())
                 Spacer()
                 Button("结束") {
-                    session.stop()
+                    viewModel.stop()
                     dismiss()
                 }
                     .buttonStyle(.bordered)
@@ -31,7 +27,14 @@ struct RunnerGameSessionView: View {
             HStack(spacing: 12) {
                 Text("体重")
                     .foregroundStyle(.secondary)
-                TextField("kg", value: $userWeightKg, format: .number)
+                TextField(
+                    "kg",
+                    value: Binding(
+                        get: { viewModel.userWeightKg },
+                        set: { viewModel.updateUserWeightKg($0) }
+                    ),
+                    format: .number
+                )
                     .multilineTextAlignment(.trailing)
                     .frame(width: 120)
                 Text("kg")
@@ -39,22 +42,34 @@ struct RunnerGameSessionView: View {
 
                 Spacer()
 
-                Text(session.metrics.debugText)
+                Text(viewModel.metrics.debugText)
                     .foregroundStyle(.secondary)
             }
 
             Divider()
 
             HStack(spacing: 16) {
-                Toggle("骨骼叠加", isOn: $showPoseOverlay)
+                Toggle(
+                    "骨骼叠加",
+                    isOn: Binding(
+                        get: { viewModel.showPoseOverlay },
+                        set: { viewModel.updateShowPoseOverlay($0) }
+                    )
+                )
                     .toggleStyle(.switch)
-                Toggle("水平镜像", isOn: $mirrorPoseOverlay)
+                Toggle(
+                    "水平镜像",
+                    isOn: Binding(
+                        get: { viewModel.mirrorPoseOverlay },
+                        set: { viewModel.updateMirrorPoseOverlay($0) }
+                    )
+                )
                     .toggleStyle(.switch)
 
                 Spacer()
             }
 
-            switch session.cameraSession.state {
+            switch viewModel.cameraSession.state {
             case .idle, .requestingAuthorization:
                 ContentUnavailableView(
                     "正在准备摄像头",
@@ -77,8 +92,8 @@ struct RunnerGameSessionView: View {
                 HStack(spacing: 16) {
                     VStack(alignment: .leading, spacing: 12) {
                         CameraPreviewView(
-                            session: session.cameraSession.captureSession,
-                            isMirroredHorizontally: mirrorPoseOverlay
+                            session: viewModel.cameraSession.captureSession,
+                            isMirroredHorizontally: viewModel.mirrorPoseOverlay
                         )
                             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                             .overlay {
@@ -86,20 +101,20 @@ struct RunnerGameSessionView: View {
                                     .strokeBorder(.quaternary)
                             }
                             .overlay {
-                                if showPoseOverlay, let pose = session.latestPose {
-                                    PoseOverlayView(pose: pose, isMirroredHorizontally: mirrorPoseOverlay)
+                                if viewModel.showPoseOverlay, let pose = viewModel.latestPose {
+                                    PoseOverlayView(pose: pose, isMirroredHorizontally: viewModel.mirrorPoseOverlay)
                                 }
                             }
                             .frame(width: 420, height: 315)
 
                         VStack(alignment: .leading, spacing: 8) {
-                            metricsRow(title: "Speed", value: String(format: "%.1f km/h", session.metrics.speedKilometersPerHour))
+                            metricsRow(title: "Speed", value: String(format: "%.1f km/h", viewModel.metrics.speedKilometersPerHour))
                                 .font(.title2.bold())
-                            metricsRow(title: "Steps", value: "\(session.metrics.steps)")
+                            metricsRow(title: "Steps", value: "\(viewModel.metrics.steps)")
                                 .font(.title3.bold())
-                            metricsRow(title: "Calories", value: String(format: "%.2f kcal", session.metrics.calories))
+                            metricsRow(title: "Calories", value: String(format: "%.2f kcal", viewModel.metrics.calories))
                                 .font(.title3.bold())
-                            metricsRow(title: "Quality", value: "\(session.metrics.movementQualityPercent)%")
+                            metricsRow(title: "Quality", value: "\(viewModel.metrics.movementQualityPercent)%")
                                 .font(.callout.bold())
                         }
                         .padding(.top, 4)
@@ -107,7 +122,7 @@ struct RunnerGameSessionView: View {
                         Spacer(minLength: 0)
                     }
 
-                    RunnerSceneView(renderer: session.sceneRenderer)
+                    RunnerSceneView(renderer: viewModel.sceneRenderer)
                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                         .overlay {
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -121,13 +136,10 @@ struct RunnerGameSessionView: View {
         .padding(20)
         .frame(minWidth: 900, minHeight: 600)
         .task {
-            await session.start()
+            await viewModel.start()
         }
         .onDisappear {
-            session.stop()
-        }
-        .onChange(of: userWeightKg) { _, newValue in
-            session.userWeightKg = newValue
+            viewModel.stop()
         }
     }
 
@@ -142,5 +154,5 @@ struct RunnerGameSessionView: View {
 }
 
 #Preview {
-    RunnerGameSessionView(dependencies: .live(), userWeightKg: 60)
+    RunnerGameSessionView(dependencies: .preview())
 }

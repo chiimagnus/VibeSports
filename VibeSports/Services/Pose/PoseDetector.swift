@@ -1,6 +1,10 @@
 import CoreVideo
 import Vision
 
+protocol PoseDetecting {
+    func detect(in pixelBuffer: CVPixelBuffer) throws -> Pose?
+}
+
 final class PoseDetector {
     private let request: VNDetectHumanBodyPoseRequest
     private let handler = VNSequenceRequestHandler()
@@ -45,3 +49,5 @@ final class PoseDetector {
         return Pose(joints: joints)
     }
 }
+
+extension PoseDetector: PoseDetecting {}

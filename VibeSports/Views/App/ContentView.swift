@@ -3,7 +3,7 @@ import SwiftUI
 struct ContentView: View {
     private let dependencies: AppDependencies
 
-    init(dependencies: AppDependencies = .live()) {
+    init(dependencies: AppDependencies) {
         self.dependencies = dependencies
     }
 
@@ -13,5 +13,5 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView()
+    ContentView(dependencies: .preview())
 }
