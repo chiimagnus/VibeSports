@@ -6,7 +6,7 @@ final class RunningMetricsTests: XCTestCase {
         var metrics = RunningMetrics()
         let t0 = Date(timeIntervalSince1970: 0)
 
-        _ = metrics.ingest(pose: Self.pose(leftWrist: .init(x: 0.4, y: 0.4), rightWrist: .init(x: 0.6, y: 0.4)), now: t0, userWeightKg: 60)
+        _ = metrics.ingest(pose: Self.pose(leftWrist: .init(x: 0.4, y: 0.4), rightWrist: .init(x: 0.6, y: 0.4)), now: t0)
 
         var now = t0
         for i in 1...20 {
@@ -17,8 +17,7 @@ final class RunningMetricsTests: XCTestCase {
                     leftWrist: .init(x: 0.4, y: 0.4 + dy),
                     rightWrist: .init(x: 0.6, y: 0.4 - dy)
                 ),
-                now: now,
-                userWeightKg: 60
+                now: now
             )
         }
 
@@ -32,17 +31,15 @@ final class RunningMetricsTests: XCTestCase {
 
         _ = metrics.ingest(
             pose: Self.pose(leftWrist: .init(x: 0.4, y: 0.5), rightWrist: .init(x: 0.6, y: 0.3)),
-            now: t0,
-            userWeightKg: 60
+            now: t0
         )
         _ = metrics.ingest(
             pose: Self.pose(leftWrist: .init(x: 0.4, y: 0.3), rightWrist: .init(x: 0.6, y: 0.5)),
-            now: Date(timeIntervalSince1970: 0.05),
-            userWeightKg: 60
+            now: Date(timeIntervalSince1970: 0.05)
         )
 
         for i in 1...80 {
-            _ = metrics.ingest(pose: nil, now: Date(timeIntervalSince1970: 0.05 + TimeInterval(i) * 0.05), userWeightKg: 60)
+            _ = metrics.ingest(pose: nil, now: Date(timeIntervalSince1970: 0.05 + TimeInterval(i) * 0.05))
         }
 
         XCTAssertEqual(metrics.speedModel.speedMetersPerSecond, 0, accuracy: 0.0001)
@@ -54,33 +51,11 @@ final class RunningMetricsTests: XCTestCase {
         metrics.stepDetector.configuration.minQualityToCountStep = 0
 
         let base = Date(timeIntervalSince1970: 0)
-        _ = metrics.ingest(pose: Self.pose(leftWrist: .init(x: 0.4, y: 0.6), rightWrist: .init(x: 0.6, y: 0.4)), now: base, userWeightKg: 60)
-        _ = metrics.ingest(pose: Self.pose(leftWrist: .init(x: 0.4, y: 0.4), rightWrist: .init(x: 0.6, y: 0.6)), now: base.addingTimeInterval(0.05), userWeightKg: 60)
-        _ = metrics.ingest(pose: Self.pose(leftWrist: .init(x: 0.4, y: 0.6), rightWrist: .init(x: 0.6, y: 0.4)), now: base.addingTimeInterval(0.10), userWeightKg: 60)
+        _ = metrics.ingest(pose: Self.pose(leftWrist: .init(x: 0.4, y: 0.6), rightWrist: .init(x: 0.6, y: 0.4)), now: base)
+        _ = metrics.ingest(pose: Self.pose(leftWrist: .init(x: 0.4, y: 0.4), rightWrist: .init(x: 0.6, y: 0.6)), now: base.addingTimeInterval(0.05))
+        _ = metrics.ingest(pose: Self.pose(leftWrist: .init(x: 0.4, y: 0.6), rightWrist: .init(x: 0.6, y: 0.4)), now: base.addingTimeInterval(0.10))
 
         XCTAssertGreaterThanOrEqual(metrics.stepDetector.stepCount, 2)
-    }
-
-    func test_caloriesIncreaseWhenSpeedPositive() {
-        var metrics = RunningMetrics()
-        metrics.stepDetector.configuration.minQualityToCountStep = 0
-        let t0 = Date(timeIntervalSince1970: 0)
-
-        var now = t0
-        for i in 1...100 {
-            now = Date(timeIntervalSince1970: TimeInterval(i) * 0.05)
-            let dy = (i % 2 == 0) ? 0.08 : -0.08
-            _ = metrics.ingest(
-                pose: Self.pose(
-                    leftWrist: .init(x: 0.4, y: 0.5 + dy),
-                    rightWrist: .init(x: 0.6, y: 0.5 - dy)
-                ),
-                now: now,
-                userWeightKg: 60
-            )
-        }
-
-        XCTAssertGreaterThan(metrics.caloriesEstimator.caloriesBurned, 0)
     }
 
     func test_closeUpModeUsesShoulderDistance() {
@@ -95,7 +70,7 @@ final class RunningMetricsTests: XCTestCase {
             .rightWrist: PoseJoint(location: .init(x: 0.5, y: 0.3), confidence: 1),
         ])
 
-        let snapshot = metrics.ingest(pose: pose, now: Date(timeIntervalSince1970: 0), userWeightKg: 60)
+        let snapshot = metrics.ingest(pose: pose, now: Date(timeIntervalSince1970: 0))
         XCTAssertTrue(snapshot.isCloseUpMode)
     }
 
@@ -106,4 +81,3 @@ final class RunningMetricsTests: XCTestCase {
         ])
     }
 }
-

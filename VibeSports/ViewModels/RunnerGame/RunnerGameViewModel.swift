@@ -22,7 +22,6 @@ final class RunnerGameViewModel: ObservableObject {
     private let settingsRepository: any SettingsRepository
 
     private var runningMetrics = RunningMetrics()
-    private var userWeightKg: Double = 60
 
     private var cancellables: Set<AnyCancellable> = []
 
@@ -36,7 +35,6 @@ final class RunnerGameViewModel: ObservableObject {
             speedMetersPerSecond: 0,
             speedKilometersPerHour: 0,
             steps: 0,
-            calories: 0,
             isCloseUpMode: false,
             debugText: "尚未开始"
         )
@@ -89,7 +87,6 @@ final class RunnerGameViewModel: ObservableObject {
             speedMetersPerSecond: 0,
             speedKilometersPerHour: 0,
             steps: 0,
-            calories: 0,
             isCloseUpMode: false,
             debugText: "已结束"
         )
@@ -98,11 +95,9 @@ final class RunnerGameViewModel: ObservableObject {
     private func loadSettings() {
         do {
             let settings = try settingsRepository.load()
-            userWeightKg = settings.userWeightKg
             showPoseOverlay = settings.showPoseOverlay
             mirrorCamera = settings.mirrorPoseOverlay
         } catch {
-            userWeightKg = 60
             showPoseOverlay = false
             mirrorCamera = true
         }
@@ -126,8 +121,7 @@ final class RunnerGameViewModel: ObservableObject {
         latestPose = pose
         let snapshot = runningMetrics.ingest(
             pose: pose,
-            now: clock.now,
-            userWeightKg: userWeightKg
+            now: clock.now
         )
         metrics = snapshot
         sceneRenderer.setSpeedMetersPerSecond(snapshot.speedMetersPerSecond)
