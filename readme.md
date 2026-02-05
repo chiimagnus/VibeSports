@@ -17,6 +17,33 @@
 - Apple Watch 集成、多端同步、运动历史统计
 - 第三方动作识别依赖（不引入 MediaPipe）
 
+## 需求分析
+
+### 摄像头视角与可见范围
+
+笔记本/iMac 摄像头在屏幕顶部，用户站在桌前时：
+
+| 距离 | 大概能看到 | 对检测的影响 |
+| --- | --- | --- |
+| **贴着桌子** | 头 + 肩 + 部分胸 | 适合“近距离模式”（上肢摆臂/节律） |
+| **退后半步（~0.5m）** | 头到腰 | 上肢/躯干可靠，下肢不稳定 |
+| **退后一步（~1m）** | 全身或大半身 | 适合“标准模式”（下肢步频/节律） |
+
+### 运动指标（对标 cam-run-master）
+
+- `movementQuality`：运动质量/置信度（0~100）
+- `speed`：速度（映射/平滑后用于驱动场景推进）
+- `steps`：步数（由步频/摆臂相位变化推导）
+- `calories`：热量（按 MET + 体重 + 时间估算）
+- `weight`：体重（用户可编辑，影响热量估算）
+
+## 交互流程（Phase B）
+
+1. App 启动：展示说明 + 体重设置 + 「开始运动」
+2. 点击开始：请求摄像头权限 → 进入跑步会话
+3. 会话中：3D 场景持续渲染，摄像头姿态检测驱动速度/步数/热量
+4. 点击结束：停止检测与摄像头，回到起始页
+
 ## 关键设计要点
 
 ### 交互与状态机
@@ -38,5 +65,5 @@
 
 ## 参考
 
-- Web 版参考（目标对齐）：`cam-run-master`（Jamesun921/cam-run）
-- Apple 示例（姿态/计数思路参考）：CreateMLComponents「Counting human body action repetitions in a live video feed」
+- Web 版参考（目标对齐）：https://github.com/Jamesun921/cam-run
+- Apple 示例（姿态/计数思路参考）：https://developer.apple.com/documentation/CreateMLComponents/counting-human-body-action-repetitions-in-a-live-video-feed
