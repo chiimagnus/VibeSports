@@ -10,7 +10,7 @@ VibeSports 是一个「摄像头跑步游戏」的极简实现：
 - 右上角：**摄像头小窗**
 - 底部：小人跑步动效（随速度变化）
 - 姿态：Apple Vision 人体姿态关键点（肩/肘/腕/髋/膝/踝）用于估计“原地跑步”的运动质量与速度
-- Debug：可打开 **骨骼叠加**，并可启用 **Pose Stabilization**（减少末端关节闪烁）
+- Debug：可打开 **Pose Overlay**，并可启用 **Pose Stabilization**（减少末端关节闪烁）
 
 > 已移除：体重/热量相关逻辑（不再计算 calories，也不再持久化 weight）。
 
@@ -29,8 +29,8 @@ VibeSports 是一个「摄像头跑步游戏」的极简实现：
 
 ### 3.1 UI 入口与布局
 
-- App 入口：`VibeSports/Views/App/VibeSportsApp.swift`
-- 根视图：`VibeSports/Views/App/ContentView.swift`
+- App 入口：`VibeSports/Views/VibeSportsApp.swift`
+- 根视图：`RunnerGameView`（当前版本直接作为 WindowGroup 的根）
 - 运行页：`VibeSports/Views/RunnerGame/RunnerGameView.swift`
 
 RunnerGameView 的核心布局：
@@ -111,14 +111,14 @@ RunnerGameView 的核心布局：
 
 实现文件：
 
-- `VibeSports/Views/App/DebugFocusedValues.swift`
-- `VibeSports/Views/App/DebugCommands.swift`
-- `VibeSports/Views/App/VibeSportsApp.swift`（注册 `.commands { DebugCommands() }`）
+- `VibeSports/Views/Commands/DebugFocusedValues.swift`
+- `VibeSports/Views/Commands/DebugCommands.swift`
+- `VibeSports/Views/VibeSportsApp.swift`（注册 `.commands { DebugCommands() }`）
 
 当前提供：
 
-- `Debug → 骨骼叠加`（⌘⇧P）
-- `Debug → 水平镜像`（⌘⇧M）
+- `Debug → Pose Overlay`（⌘⇧P）
+- `Debug → Mirror Camera`（⌘⇧M）
 - `Debug → Pose Stabilization`（⌘⇧S）
 
 这些开关通过 `FocusedValues` 绑定到当前窗口的 `RunnerGameView`（`focusedSceneValue`）。
@@ -140,10 +140,9 @@ RunnerGameView 的核心布局：
 
 - `VibeSportsTests/SwiftDataSettingsRepositoryTests.swift`
 
-> 注意：曾做过一次 settings store 的重建/版本隔离（避免字段变更导致启动失败），实现见 `VibeSports/Views/App/VibeSportsApp.swift`。
+> 注意：曾做过一次 settings store 的重建/版本隔离（避免字段变更导致启动失败），实现见 `VibeSports/Views/VibeSportsApp.swift`。
 
 ## 8. 构建与测试
 
 - Build：`xcodebuild -project VibeSports.xcodeproj -scheme VibeSports -destination 'platform=macOS' build`
 - Test：`xcodebuild -project VibeSports.xcodeproj -scheme VibeSports -destination 'platform=macOS' test`
-
