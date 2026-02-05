@@ -6,6 +6,7 @@ final class SwiftDataSettingsRepository: SettingsRepository {
     private enum LegacyKeys {
         static let showPoseOverlay = "runner.debug.showPoseOverlay"
         static let mirrorPoseOverlay = "runner.debug.mirrorPoseOverlay"
+        static let poseStabilizationEnabled = "runner.debug.poseStabilizationEnabled"
     }
 
     private let modelContext: ModelContext
@@ -21,7 +22,8 @@ final class SwiftDataSettingsRepository: SettingsRepository {
         let settings = try fetchOrCreate()
         return SettingsSnapshot(
             showPoseOverlay: settings.showPoseOverlay,
-            mirrorPoseOverlay: settings.mirrorPoseOverlay
+            mirrorPoseOverlay: settings.mirrorPoseOverlay,
+            poseStabilizationEnabled: settings.poseStabilizationEnabled
         )
     }
 
@@ -34,6 +36,12 @@ final class SwiftDataSettingsRepository: SettingsRepository {
     func updateMirrorPoseOverlay(_ isEnabled: Bool) throws {
         let settings = try fetchOrCreate()
         settings.mirrorPoseOverlay = isEnabled
+        try modelContext.save()
+    }
+
+    func updatePoseStabilizationEnabled(_ isEnabled: Bool) throws {
+        let settings = try fetchOrCreate()
+        settings.poseStabilizationEnabled = isEnabled
         try modelContext.save()
     }
 
@@ -56,7 +64,8 @@ final class SwiftDataSettingsRepository: SettingsRepository {
 
             let seeded = AppSettings(
                 showPoseOverlay: legacyBool(forKey: LegacyKeys.showPoseOverlay) ?? false,
-                mirrorPoseOverlay: legacyBool(forKey: LegacyKeys.mirrorPoseOverlay) ?? false
+                mirrorPoseOverlay: legacyBool(forKey: LegacyKeys.mirrorPoseOverlay) ?? false,
+                poseStabilizationEnabled: legacyBool(forKey: LegacyKeys.poseStabilizationEnabled) ?? true
             )
             modelContext.insert(seeded)
             try modelContext.save()

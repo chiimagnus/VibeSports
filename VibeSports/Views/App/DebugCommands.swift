@@ -3,6 +3,7 @@ import SwiftUI
 struct DebugCommands: Commands {
     @FocusedValue(\.showPoseOverlay) private var showPoseOverlay
     @FocusedValue(\.mirrorCamera) private var mirrorCamera
+    @FocusedValue(\.poseStabilizationEnabled) private var poseStabilizationEnabled
 
     var body: some Commands {
         CommandMenu("Debug") {
@@ -22,6 +23,17 @@ struct DebugCommands: Commands {
                 Button("水平镜像") {}
                     .disabled(true)
                     .keyboardShortcut("m", modifiers: [.command, .shift])
+            }
+
+            Divider()
+
+            if let poseStabilizationEnabled {
+                Toggle("Pose Stabilization", isOn: poseStabilizationEnabled)
+                    .keyboardShortcut("s", modifiers: [.command, .shift])
+            } else {
+                Button("Pose Stabilization") {}
+                    .disabled(true)
+                    .keyboardShortcut("s", modifiers: [.command, .shift])
             }
         }
     }
