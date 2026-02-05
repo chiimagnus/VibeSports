@@ -1,0 +1,159 @@
+import CoreGraphics
+import Foundation
+
+struct RunningMetricsSnapshot: Sendable, Equatable {
+    var movementQualityPercent: Int
+    var speedMetersPerSecond: Double
+    var speedKilometersPerHour: Double
+    var steps: Int
+    var calories: Double
+    var isCloseUpMode: Bool
+    var debugText: String
+}
+
+struct RunningMetrics: Sendable, Equatable {
+    struct Configuration: Sendable, Equatable {
+        var movementThreshold: Double = 1.0
+        var runningThreshold: Double = 0.25
+        var smoothingAlpha: Double = 0.2
+
+        var closeUpShoulderDistanceThreshold: Double = 0.24
+        var closeUpUpperBodyConfidenceThreshold: Double = 0.5
+        var closeUpMovementThresholdMultiplier: Double = 0.7
+    }
+
+    var configuration = Configuration()
+    var speedModel = RunningSpeedModel()
+    var stepDetector = RunningStepDetector()
+    var caloriesEstimator = CaloriesEstimator()
+
+    private var lastUpdateTime: Date?
+    private var lastQuality: Double = 0
+    private var previousPositions: [PoseJointName: CGPoint] = [:]
+
+    private(set) var isCloseUpMode = false
+    private(set) var shoulderDistance: Double?
+
+    mutating func reset() {
+        speedModel = RunningSpeedModel()
+        stepDetector.reset()
+        caloriesEstimator.reset()
+        lastUpdateTime = nil
+        lastQuality = 0
+        previousPositions.removeAll(keepingCapacity: true)
+        isCloseUpMode = false
+        shoulderDistance = nil
+    }
+
+    mutating func ingest(pose: Pose?, now: Date, userWeightKg: Double) -> RunningMetricsSnapshot {
+        let dt: TimeInterval
+        if let lastUpdateTime {
+            dt = max(0.001, now.timeIntervalSince(lastUpdateTime))
+        } else {
+            dt = 1.0 / 20.0
+        }
+        lastUpdateTime = now
+
+        updateCloseUpMode(with: pose)
+
+        let rawQuality = movementQuality(from: pose, deltaTime: dt)
+        let smoothedQuality = (1 - configuration.smoothingAlpha) * lastQuality + configuration.smoothingAlpha * rawQuality
+        lastQuality = smoothedQuality
+
+        let isMoving = smoothedQuality >= configuration.runningThreshold
+        speedModel.update(isMoving: isMoving, deltaTime: dt)
+
+        stepDetector.ingest(pose: pose, movementQuality: smoothedQuality, now: now)
+        caloriesEstimator.ingest(
+            speedMetersPerSecond: speedModel.speedMetersPerSecond,
+            userWeightKg: userWeightKg,
+            deltaTime: dt
+        )
+
+        let speedKmh = speedModel.speedMetersPerSecond * 3.6
+
+        let debugText: String = {
+            if pose == nil {
+                return "未检测到有效姿势"
+            }
+            let modeText = isCloseUpMode ? "近距离" : "标准"
+            let shoulderText = shoulderDistance.map { String(format: "%.3f", $0) } ?? "-"
+            return "\(modeText) | 质量 \(Int(smoothedQuality * 100))% | 肩距 \(shoulderText)"
+        }()
+
+        return RunningMetricsSnapshot(
+            movementQualityPercent: Int((smoothedQuality * 100).rounded()),
+            speedMetersPerSecond: speedModel.speedMetersPerSecond,
+            speedKilometersPerHour: speedKmh,
+            steps: stepDetector.stepCount,
+            calories: caloriesEstimator.caloriesBurned,
+            isCloseUpMode: isCloseUpMode,
+            debugText: debugText
+        )
+    }
+
+    private mutating func updateCloseUpMode(with pose: Pose?) {
+        guard
+            let left = pose?.joint(.leftShoulder),
+            let right = pose?.joint(.rightShoulder)
+        else {
+            isCloseUpMode = false
+            shoulderDistance = nil
+            return
+        }
+
+        let dx = left.location.x - right.location.x
+        let dy = left.location.y - right.location.y
+        let distance = sqrt(dx * dx + dy * dy)
+        shoulderDistance = distance
+
+        let upperBodyConfidence = (left.confidence + right.confidence) / 2
+        isCloseUpMode = distance >= configuration.closeUpShoulderDistanceThreshold
+            && upperBodyConfidence >= configuration.closeUpUpperBodyConfidenceThreshold
+    }
+
+    private mutating func movementQuality(from pose: Pose?, deltaTime: TimeInterval) -> Double {
+        guard let pose else {
+            previousPositions.removeAll(keepingCapacity: true)
+            return 0
+        }
+
+        let dt = max(0.001, deltaTime)
+
+        let candidateJoints: [PoseJointName] = [
+            .leftWrist, .rightWrist,
+            .leftKnee, .rightKnee
+        ]
+
+        var totalVelocity: Double = 0
+        var count: Double = 0
+
+        for jointName in candidateJoints {
+            guard let joint = pose.joint(jointName) else { continue }
+            let current = joint.location
+
+            if let previous = previousPositions[jointName] {
+                let vx = Double((current.x - previous.x) / dt)
+                let vy = Double((current.y - previous.y) / dt)
+                totalVelocity += abs(vx) + abs(vy)
+                count += 1
+            }
+
+            previousPositions[jointName] = current
+        }
+
+        guard count > 0 else { return 0 }
+        var threshold = configuration.movementThreshold
+
+        if isCloseUpMode {
+            threshold *= configuration.closeUpMovementThresholdMultiplier
+        } else if pose.joint(.leftKnee) == nil && pose.joint(.rightKnee) == nil {
+            threshold *= 0.7
+        }
+
+        let averageVelocity = totalVelocity / count
+        let normalized = min(1, averageVelocity / max(0.0001, threshold))
+        return pow(normalized, 1.5)
+    }
+}
+

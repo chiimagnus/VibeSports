@@ -2,10 +2,16 @@ import SwiftUI
 
 struct RunnerGameSessionView: View {
     let dependencies: AppDependencies
-    let userWeightKg: Double
     @Environment(\.dismiss) private var dismiss
 
-    @StateObject private var cameraSession = CameraSession()
+    @AppStorage("runner.userWeightKg") private var userWeightKg: Double = 60
+    @StateObject private var session: RunnerGameSession
+
+    init(dependencies: AppDependencies, userWeightKg: Double) {
+        self.dependencies = dependencies
+        _userWeightKg = AppStorage(wrappedValue: userWeightKg, "runner.userWeightKg")
+        _session = StateObject(wrappedValue: RunnerGameSession(dependencies: dependencies, userWeightKg: userWeightKg))
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -14,18 +20,30 @@ struct RunnerGameSessionView: View {
                     .font(.title2.bold())
                 Spacer()
                 Button("结束") {
-                    cameraSession.stop()
+                    session.stop()
                     dismiss()
                 }
                     .buttonStyle(.bordered)
             }
 
-            Text("体重：\(userWeightKg, format: .number) kg")
-                .foregroundStyle(.secondary)
+            HStack(spacing: 12) {
+                Text("体重")
+                    .foregroundStyle(.secondary)
+                TextField("kg", value: $userWeightKg, format: .number)
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 120)
+                Text("kg")
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+
+                Text(session.metrics.debugText)
+                    .foregroundStyle(.secondary)
+            }
 
             Divider()
 
-            switch cameraSession.state {
+            switch session.cameraSession.state {
             case .idle, .requestingAuthorization:
                 ContentUnavailableView(
                     "正在准备摄像头",
@@ -46,35 +64,36 @@ struct RunnerGameSessionView: View {
                 )
             case .running:
                 HStack(spacing: 16) {
-                    CameraPreviewView(session: cameraSession.captureSession)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .strokeBorder(.quaternary)
+                    VStack(alignment: .leading, spacing: 12) {
+                        CameraPreviewView(session: session.cameraSession.captureSession)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .strokeBorder(.quaternary)
+                            }
+                            .frame(width: 420, height: 315)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            metricsRow(title: "Speed", value: String(format: "%.1f km/h", session.metrics.speedKilometersPerHour))
+                                .font(.title2.bold())
+                            metricsRow(title: "Steps", value: "\(session.metrics.steps)")
+                                .font(.title3.bold())
+                            metricsRow(title: "Calories", value: String(format: "%.2f kcal", session.metrics.calories))
+                                .font(.title3.bold())
+                            metricsRow(title: "Quality", value: "\(session.metrics.movementQualityPercent)%")
+                                .font(.callout.bold())
                         }
-                        .frame(width: 420)
-
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Speed")
-                            .foregroundStyle(.secondary)
-                        Text("0.0 km/h")
-                            .font(.title.bold())
-
-                        Text("Steps")
-                            .foregroundStyle(.secondary)
-                            .padding(.top, 8)
-                        Text("0")
-                            .font(.title2.bold())
-
-                        Text("Calories")
-                            .foregroundStyle(.secondary)
-                            .padding(.top, 8)
-                        Text("0.0 kcal")
-                            .font(.title2.bold())
+                        .padding(.top, 4)
 
                         Spacer(minLength: 0)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    RunnerSceneView(renderer: session.sceneRenderer)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .strokeBorder(.quaternary)
+                        }
                 }
             }
 
@@ -83,10 +102,22 @@ struct RunnerGameSessionView: View {
         .padding(20)
         .frame(minWidth: 900, minHeight: 600)
         .task {
-            await cameraSession.start()
+            await session.start()
         }
         .onDisappear {
-            cameraSession.stop()
+            session.stop()
+        }
+        .onChange(of: userWeightKg) { _, newValue in
+            session.userWeightKg = newValue
+        }
+    }
+
+    private func metricsRow(title: String, value: String) -> some View {
+        HStack {
+            Text(title)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(value)
         }
     }
 }
