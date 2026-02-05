@@ -29,7 +29,7 @@
 
 ### P1（最高优先级）：工程基线与权限
 
-#### Task 1: 清理模板代码，建立 RunnerGame 入口
+#### ✅Task 1: 清理模板代码，建立 RunnerGame 入口
 
 **Files:**
 - Modify: `VibeSports/VibeSportsApp.swift`
@@ -46,7 +46,7 @@ Expected: PASS
 
 Expected: PASS（仍可 build）
 
-#### Task 2: 摄像头权限与 Info.plist 配置
+#### ✅Task 2: 摄像头权限与 Info.plist 配置
 
 **Files:**
 - Modify: `VibeSports.xcodeproj/project.pbxproj`
@@ -62,7 +62,7 @@ Expected: PASS（运行时会弹权限）
 
 Expected: 运行时能成功打开摄像头（系统弹窗授权后）
 
-#### Task 3: 锁定目标系统与 Swift 版本（破坏性调整）
+#### ✅Task 3: 锁定目标系统与 Swift 版本（破坏性调整）
 
 **Files:**
 - Modify: `VibeSports.xcodeproj/project.pbxproj`
