@@ -79,7 +79,7 @@ Expected: PASS
 
 ### P1：依赖注入与数据流（可测试）
 
-#### Task 4: 定义核心协议与依赖容器
+#### ✅Task 4: 定义核心协议与依赖容器
 
 **Files:**
 - Create: `VibeSports/Core/Dependencies/AppDependencies.swift`
@@ -102,7 +102,7 @@ Expected: PASS
 
 ### P1：摄像头采集（AVFoundation）
 
-#### Task 5: CameraSession（启动/停止/帧流）
+#### ✅Task 5: CameraSession（启动/停止/帧流）
 
 **Files:**
 - Create: `VibeSports/Services/Camera/CameraSession.swift`
@@ -112,7 +112,7 @@ Expected: PASS
 
 建议接口（示意）：
 - `start() / stop()`
-- 帧输出使用 `AsyncStream<CameraFrame>` 或 Combine Publisher（二选一，保持全项目一致）
+- 帧处理建议“就地消费”（在 `AVCaptureVideoDataOutput` 的输出队列中直接做 Vision 姿态请求），避免把 `CVPixelBuffer` 跨并发域传递导致 Swift 6 `Sendable` 约束问题；如确实需要对外暴露帧流，再用显式的线程/隔离策略封装。
 
 **Step 2: 在 SwiftUI 中展示摄像头预览（不做骨骼叠加）**
 
@@ -255,4 +255,3 @@ Expected: PASS（运行时手动验收 Acceptance 1~5）
 1. “完全复刻”的视觉边界：是否需要人物阴影/轮廓渲染（cam-run 的 shadowCanvas 风格）？
 2. 速度单位与映射：UI 显示 km/h 还是 m/s？上限/加速度是否要严格对齐 cam-run 的 config？
 3. 近距离模式阈值：用“肩宽像素占比”还是“关键点置信度组合”判断？
-
