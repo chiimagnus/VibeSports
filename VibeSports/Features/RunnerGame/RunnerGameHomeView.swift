@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct RunnerGameHomeView: View {
+    let dependencies: AppDependencies
+
     @AppStorage("runner.userWeightKg") private var userWeightKg: Double = 60
     @State private var isPresentingSession = false
 
@@ -49,12 +51,14 @@ struct RunnerGameHomeView: View {
         .padding(24)
         .frame(minWidth: 520, minHeight: 360)
         .sheet(isPresented: $isPresentingSession) {
-            RunnerGameSessionView(userWeightKg: userWeightKg)
+            RunnerGameSessionView(
+                dependencies: dependencies,
+                userWeightKg: userWeightKg
+            )
         }
     }
 }
 
 #Preview {
-    RunnerGameHomeView()
+    RunnerGameHomeView(dependencies: .live())
 }
-
