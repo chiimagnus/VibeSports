@@ -4,6 +4,14 @@ VibeSports is a macOS-native “camera running game” prototype:
 start a session → capture camera frames → estimate body pose with Apple Vision →
 compute movement quality / speed / steps → drive an infinite SceneKit runner scene.
 
+## Why
+
+I want an app that nudges me to move while I’m working.
+The best time to do that is during “waiting moments” in AI-assisted development
+(e.g. when Codex / Claude Code / Cursor / GitHub Copilot is generating or applying changes).
+When a reminder triggers, the app should pop up, turn on the camera, and track a short exercise set
+like jumping jacks or squats—similar to fitness-tracking apps on phones, but optimized for the desktop workflow.
+
 ## Requirements
 
 - macOS 14+
