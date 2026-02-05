@@ -1,10 +1,3 @@
-//
-//  CameraSession.swift
-//  VibeSports
-//
-//  Created by chii_magnus on 2026/2/5.
-//
-
 import AVFoundation
 import Combine
 import Foundation
