@@ -58,6 +58,7 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
     private let cameraNode = SCNNode()
     private let camera = SCNCamera()
     private var segmentNodes: [SCNNode] = []
+    private let decorationAssets = DecorationAssets()
 
     init(configuration: RunnerSceneRenderer.Configuration) {
         self.configuration = configuration
@@ -201,36 +202,77 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
 
         guard let decorations = node.childNode(withName: "decorations", recursively: false) else { return }
         for child in decorations.childNodes {
-            let x = Double.random(in: -(configuration.segmentWidth / 2)...(configuration.segmentWidth / 2))
+            let side: Double = Bool.random() ? 1 : -1
+            let edgeInset = 0.6
+            let x = side * Double.random(in: (configuration.segmentWidth / 2 - edgeInset)...(configuration.segmentWidth / 2 + 2.2))
             let z = Double.random(in: -(configuration.segmentLength / 2)...(configuration.segmentLength / 2))
             child.position = SCNVector3(CGFloat(x), 0, CGFloat(z))
+            child.eulerAngles.y = CGFloat(Double.random(in: 0...(2 * .pi)))
         }
     }
 
     private func makeDecorationNode() -> SCNNode {
-        let trunk = SCNCylinder(radius: 0.06, height: 0.5)
-        let trunkMaterial = SCNMaterial()
+        if Int.random(in: 0...9) == 0 {
+            return decorationAssets.makeMarkerNode()
+        } else {
+            return decorationAssets.makeTreeNode()
+        }
+    }
+}
+
+private final class DecorationAssets {
+    private let trunkGeometry: SCNCylinder
+    private let crownGeometry: SCNCone
+    private let markerGeometry: SCNBox
+
+    private let trunkMaterial: SCNMaterial
+    private let crownMaterial: SCNMaterial
+    private let markerMaterial: SCNMaterial
+
+    init() {
+        trunkGeometry = SCNCylinder(radius: 0.06, height: 0.5)
+        crownGeometry = SCNCone(topRadius: 0, bottomRadius: 0.22, height: 0.55)
+        markerGeometry = SCNBox(width: 0.18, height: 0.8, length: 0.04, chamferRadius: 0.02)
+
+        trunkMaterial = SCNMaterial()
         trunkMaterial.diffuse.contents = NSColor(white: 0.3, alpha: 1)
-        trunk.materials = [trunkMaterial]
+        trunkMaterial.roughness.contents = 1.0
+        trunkMaterial.metalness.contents = 0.0
 
-        let crown = SCNCone(topRadius: 0, bottomRadius: 0.22, height: 0.55)
-        let crownMaterial = SCNMaterial()
+        crownMaterial = SCNMaterial()
         crownMaterial.diffuse.contents = NSColor(calibratedRed: 0.15, green: 0.55, blue: 0.22, alpha: 1)
-        crown.materials = [crownMaterial]
+        crownMaterial.roughness.contents = 0.95
+        crownMaterial.metalness.contents = 0.0
 
-        let trunkNode = SCNNode(geometry: trunk)
+        markerMaterial = SCNMaterial()
+        markerMaterial.diffuse.contents = NSColor(calibratedRed: 0.95, green: 0.25, blue: 0.2, alpha: 1)
+        markerMaterial.roughness.contents = 0.85
+        markerMaterial.metalness.contents = 0.0
+
+        trunkGeometry.materials = [trunkMaterial]
+        crownGeometry.materials = [crownMaterial]
+        markerGeometry.materials = [markerMaterial]
+    }
+
+    func makeTreeNode() -> SCNNode {
+        let trunkNode = SCNNode(geometry: trunkGeometry)
         trunkNode.position = SCNVector3(0, 0.25, 0)
 
-        let crownNode = SCNNode(geometry: crown)
+        let crownNode = SCNNode(geometry: crownGeometry)
         crownNode.position = SCNVector3(0, 0.78, 0)
 
         let node = SCNNode()
         node.addChildNode(trunkNode)
         node.addChildNode(crownNode)
+        return node
+    }
 
-        let side: Double = Bool.random() ? 1 : -1
-        node.position.x = CGFloat(side * Double.random(in: (configuration.segmentWidth / 2 - 0.6)...(configuration.segmentWidth / 2)))
-        node.eulerAngles.y = CGFloat(Double.random(in: 0...(2 * .pi)))
+    func makeMarkerNode() -> SCNNode {
+        let markerNode = SCNNode(geometry: markerGeometry)
+        markerNode.position = SCNVector3(0, 0.4, 0)
+
+        let node = SCNNode()
+        node.addChildNode(markerNode)
         return node
     }
 }

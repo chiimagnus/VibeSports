@@ -9,6 +9,7 @@ final class RunnerGameSession: ObservableObject {
 
     @Published var userWeightKg: Double
     @Published private(set) var metrics: RunningMetricsSnapshot
+    @Published private(set) var latestPose: Pose?
 
     private var runningMetrics = RunningMetrics()
 
@@ -53,6 +54,7 @@ final class RunnerGameSession: ObservableObject {
     }
 
     private func handlePose(_ pose: Pose?) {
+        latestPose = pose
         let snapshot = runningMetrics.ingest(
             pose: pose,
             now: dependencies.clock.now,
@@ -62,4 +64,3 @@ final class RunnerGameSession: ObservableObject {
         sceneRenderer.setSpeedMetersPerSecond(snapshot.speedMetersPerSecond)
     }
 }
-

@@ -5,6 +5,8 @@ struct RunnerGameSessionView: View {
     @Environment(\.dismiss) private var dismiss
 
     @AppStorage("runner.userWeightKg") private var userWeightKg: Double = 60
+    @AppStorage("runner.debug.showPoseOverlay") private var showPoseOverlay = false
+    @AppStorage("runner.debug.mirrorPoseOverlay") private var mirrorPoseOverlay = false
     @StateObject private var session: RunnerGameSession
 
     init(dependencies: AppDependencies, userWeightKg: Double) {
@@ -43,6 +45,15 @@ struct RunnerGameSessionView: View {
 
             Divider()
 
+            HStack(spacing: 16) {
+                Toggle("骨骼叠加", isOn: $showPoseOverlay)
+                    .toggleStyle(.switch)
+                Toggle("水平镜像", isOn: $mirrorPoseOverlay)
+                    .toggleStyle(.switch)
+
+                Spacer()
+            }
+
             switch session.cameraSession.state {
             case .idle, .requestingAuthorization:
                 ContentUnavailableView(
@@ -65,11 +76,19 @@ struct RunnerGameSessionView: View {
             case .running:
                 HStack(spacing: 16) {
                     VStack(alignment: .leading, spacing: 12) {
-                        CameraPreviewView(session: session.cameraSession.captureSession)
+                        CameraPreviewView(
+                            session: session.cameraSession.captureSession,
+                            isMirroredHorizontally: mirrorPoseOverlay
+                        )
                             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                             .overlay {
                                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                                     .strokeBorder(.quaternary)
+                            }
+                            .overlay {
+                                if showPoseOverlay, let pose = session.latestPose {
+                                    PoseOverlayView(pose: pose, isMirroredHorizontally: mirrorPoseOverlay)
+                                }
                             }
                             .frame(width: 420, height: 315)
 
