@@ -7,6 +7,7 @@ import SwiftData
 struct VibeSportsApp: App {
     private let modelContainer: ModelContainer
     private let dependencies: AppDependencies
+    @StateObject private var debugTools = DebugToolsStore()
 
     init() {
         do {
@@ -41,6 +42,7 @@ struct VibeSportsApp: App {
     var body: some Scene {
         WindowGroup {
             RunnerGameView(dependencies: dependencies)
+                .environmentObject(debugTools)
         }
         .modelContainer(modelContainer)
         .commands {
@@ -50,6 +52,12 @@ struct VibeSportsApp: App {
 #if DEBUG
         Window("Runner Animations", id: "runner-animations") {
             RunnerAnimationDebugView()
+                .environmentObject(debugTools)
+        }
+
+        Window("Runner Tuning", id: "runner-tuning") {
+            RunnerTuningDebugView()
+                .environmentObject(debugTools)
         }
 #endif
     }
