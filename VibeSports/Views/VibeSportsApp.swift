@@ -46,5 +46,11 @@ struct VibeSportsApp: App {
         .commands {
             DebugCommands()
         }
+
+#if DEBUG
+        Window("Runner Animations", id: "runner-animations") {
+            RunnerAnimationDebugView()
+        }
+#endif
     }
 }
