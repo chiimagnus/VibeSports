@@ -8,7 +8,7 @@ VibeSports 是一个「摄像头跑步游戏」的极简实现：
 
 - 主界面：SceneKit **3D 无限跑道**为主画面
 - 右上角：**摄像头小窗**
-- 底部：小人跑步动效（随速度变化）
+- 角色：SceneKit 中的 **3D runner 角色**（`Runner.usdz`），动画随速度变化（Idle/SlowRun/FastRun 连续混合）
 - 姿态：Apple Vision 人体姿态关键点（肩/肘/腕/髋/膝/踝）用于估计“原地跑步”的运动质量与速度
 - Debug：可打开 **Pose Overlay**，并可启用 **Pose Stabilization**（减少末端关节闪烁）
 
@@ -38,7 +38,7 @@ RunnerGameView 的核心布局：
 - 背景：`RunnerSceneView`（SceneKit 渲染）
 - 右上角：`CameraPreviewView`（AVCaptureSession 预览）
 - 摄像头 overlay：`PoseOverlayView`（Debug 开关控制）
-- 底部：`RunnerAvatarView`（随速度跳动）
+- 3D 角色与相机：由 `RunnerSceneRenderer` 负责加载 `Runner.usdz`、驱动第三人称相机跟随与动画混合
 
 ### 3.2 会话状态机（ViewModel）
 
@@ -100,6 +100,8 @@ RunnerGameView 的核心布局：
 
 - 使用固定数量 terrain segment（`TerrainSegmentPool`）循环复用，避免节点无限增长
 - 相机位移由 `speedMetersPerSecond` 推进，叠加轻微 bob/sway 模拟奔跑
+- 3D runner 角色来自 `VibeSports/Resources/Runner.usdz`，并在 `Skeleton` 节点上同时播放三段动画（loop）
+- 动画权重按速度实时计算（Idle↔SlowRun↔FastRun 连续混合），并同步调整步频（playback rate）
 - 即使 speed=0，也保持相机朝向正确（避免“黑屏/看不到场景”）
 
 文件：
@@ -120,8 +122,12 @@ RunnerGameView 的核心布局：
 - `Debug → Pose Overlay`（⌘⇧P）
 - `Debug → Mirror Camera`（⌘⇧M）
 - `Debug → Pose Stabilization`（⌘⇧S）
+- `Debug → Runner Animations…`（列出 `Runner.usdz` 内的动画 keys，支持 Play/Solo/Blend/Rate）
+- `Debug → Runner Tuning…`（实时调 runner/camera/blend 参数，用于校准大小/朝向/镜头距离等）
 
 这些开关通过 `FocusedValues` 绑定到当前窗口的 `RunnerGameView`（`focusedSceneValue`）。
+
+更多关于 `Runner.usdz` 的构建/验证与参数含义：见 `.github/plans/1.md`。
 
 ## 7. Settings（SwiftData 持久化）
 
