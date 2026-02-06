@@ -47,6 +47,10 @@ struct DebugCommands: Commands {
                 openWindow(id: "runner-animations")
             }
             .keyboardShortcut("r", modifiers: [.command, .shift])
+
+            Button("Runner Tuning…") {
+                openWindow(id: "runner-tuning")
+            }
 #endif
         }
     }

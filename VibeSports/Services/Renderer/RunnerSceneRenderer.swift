@@ -11,6 +11,62 @@ protocol RunnerSceneRendering: AnyObject {
 
 @MainActor
 final class RunnerSceneRenderer: ObservableObject {
+    struct Tuning: Sendable, Equatable {
+        struct Runner: Sendable, Equatable {
+            var scale: Double
+            var yawRadians: Double
+            var aheadOffsetZ: Double
+            var additionalGroundOffsetY: Double
+            var x: Double
+        }
+
+        struct Camera: Sendable, Equatable {
+            var fieldOfViewDegrees: Double
+            var heightY: Double
+            var backOffsetZ: Double
+            var lookAtHeightY: Double
+
+            var bobMaxAmplitude: Double
+            var bobSpeedToAmplitudeGain: Double
+            var bobFrequency: Double
+
+            var swayMaxAmplitude: Double
+            var swaySpeedToAmplitudeGain: Double
+            var swayFrequency: Double
+            var baseX: Double
+        }
+
+        var runner: Runner
+        var camera: Camera
+        var blender: RunnerAnimationBlender.Configuration
+        var speedSmoothingAlpha: Double
+
+        static let `default` = Tuning(
+            runner: Runner(
+                scale: 0.01,
+                yawRadians: 0,
+                aheadOffsetZ: 6.0,
+                additionalGroundOffsetY: 0,
+                x: 0
+            ),
+            camera: Camera(
+                fieldOfViewDegrees: 70,
+                heightY: 2.2,
+                backOffsetZ: 5.0,
+                lookAtHeightY: 1.4,
+                bobMaxAmplitude: 0.12,
+                bobSpeedToAmplitudeGain: 0.02,
+                bobFrequency: 6.0,
+                swayMaxAmplitude: 0.08,
+                swaySpeedToAmplitudeGain: 0.015,
+                swayFrequency: 3.5,
+                baseX: 0
+            ),
+            blender: RunnerAnimationBlender.Configuration(),
+            speedSmoothingAlpha: 0.20
+        )
+    }
+
     struct Configuration: Sendable, Equatable {
         var segmentLength: Double = 10
         var segmentWidth: Double = 8
@@ -29,6 +85,11 @@ final class RunnerSceneRenderer: ObservableObject {
         self.animator = RunnerSceneAnimator(configuration: configuration)
 
         setupScene()
+    }
+
+    var tuning: Tuning {
+        get { animator.tuning }
+        set { animator.setTuning(newValue) }
     }
 
     func attach(to view: SCNView) {
@@ -56,10 +117,17 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
     private let configuration: RunnerSceneRenderer.Configuration
     private var pool: TerrainSegmentPool
 
+    private let logger = Logger(subsystem: "com.chiimagnus.VibeSports", category: "RunnerSceneAnimator")
+
     private let lock = OSAllocatedUnfairLock(initialState: SpeedState())
+    private let tuningLock = OSAllocatedUnfairLock(initialState: TuningState())
 
     private struct SpeedState {
         var speedMetersPerSecond: Double = 0
+    }
+
+    private struct TuningState {
+        var tuning: RunnerSceneRenderer.Tuning = .default
     }
 
     private var lastTime: TimeInterval?
@@ -68,6 +136,19 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
     private let camera = SCNCamera()
     private var segmentNodes: [SCNNode] = []
     private let decorationAssets = DecorationAssets()
+
+    private var runnerNode: SCNNode?
+    private var runnerSkinnedNode: SCNNode?
+    private var runnerSkeletonNode: SCNNode?
+
+    private var animationBlender = RunnerAnimationBlender()
+    private var idlePlayer: SCNAnimationPlayer?
+    private var slowRunPlayer: SCNAnimationPlayer?
+    private var fastRunPlayer: SCNAnimationPlayer?
+
+    private var displayedSpeedMetersPerSecond: Double = 0
+    private var travelZ: Double = 0
+    private var lastAppliedTuning: RunnerSceneRenderer.Tuning?
 
     init(configuration: RunnerSceneRenderer.Configuration) {
         self.configuration = configuration
@@ -82,11 +163,19 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
         scene.rootNode.addChildNode(makeAmbientLight())
         scene.rootNode.addChildNode(makeDirectionalLight())
 
+        let tuning = tuningLock.withLock { $0.tuning }
+
         cameraNode.camera = camera
-        camera.fieldOfView = 70
-        cameraNode.position = SCNVector3(0, 2.2, 0)
-        cameraNode.look(at: SCNVector3(0, 1.7, 8))
+        camera.fieldOfView = CGFloat(tuning.camera.fieldOfViewDegrees)
+        travelZ = 0
+        cameraNode.position = SCNVector3(
+            0,
+            CGFloat(tuning.camera.heightY),
+            CGFloat(initialCameraZ(tuning: tuning))
+        )
         scene.rootNode.addChildNode(cameraNode)
+
+        installRunner(into: scene)
 
         segmentNodes = pool.segments.map { segment in
             makeSegmentNode(startZ: segment.startZ)
@@ -100,11 +189,31 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
     func reset() {
         lastTime = nil
         lock.withLock { $0.speedMetersPerSecond = 0 }
+        displayedSpeedMetersPerSecond = 0
+        travelZ = 0
+        lastAppliedTuning = nil
 
         pool = TerrainSegmentPool(activeSegments: configuration.activeSegments, segmentLength: configuration.segmentLength)
 
-        cameraNode.position = SCNVector3(0, 2.2, 0)
-        cameraNode.look(at: SCNVector3(0, 1.7, 8))
+        let tuning = tuningLock.withLock { $0.tuning }
+        camera.fieldOfView = CGFloat(tuning.camera.fieldOfViewDegrees)
+        cameraNode.position = SCNVector3(
+            0,
+            CGFloat(tuning.camera.heightY),
+            CGFloat(initialCameraZ(tuning: tuning))
+        )
+
+        if let runnerNode {
+            runnerNode.position = runnerPosition(travelZ: travelZ)
+        }
+
+        idlePlayer?.blendFactor = 1
+        slowRunPlayer?.blendFactor = 0
+        fastRunPlayer?.blendFactor = 0
+        idlePlayer?.speed = 1
+        slowRunPlayer?.speed = 1
+        fastRunPlayer?.speed = 1
+
         for (index, segment) in pool.segments.enumerated() where index < segmentNodes.count {
             updateSegmentNode(segmentNodes[index], startZ: segment.startZ)
         }
@@ -117,6 +226,8 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
     }
 
     func renderer(_ renderer: any SCNSceneRenderer, updateAtTime time: TimeInterval) {
+        let tuning = tuningLock.withLock { $0.tuning }
+
         let dt: TimeInterval
         if let lastTime {
             dt = max(0, time - lastTime)
@@ -126,23 +237,40 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
         lastTime = time
 
         let speed = lock.withLock { $0.speedMetersPerSecond }
-        if speed > 0 {
-            let advance = speed * dt
-            cameraNode.position.z += CGFloat(advance)
+        displayedSpeedMetersPerSecond += (speed - displayedSpeedMetersPerSecond) * tuning.speedSmoothingAlpha
 
-            let bob = sin(time * 6.0) * min(0.12, speed * 0.02)
-            let sway = cos(time * 3.5) * min(0.08, speed * 0.015)
-            cameraNode.position.y = 2.2 + CGFloat(bob)
-            cameraNode.position.x = CGFloat(sway)
-        } else {
-            cameraNode.position.y = 2.2
-            cameraNode.position.x = 0
+        if lastAppliedTuning != tuning {
+            applyTuning(tuning)
+            lastAppliedTuning = tuning
         }
 
-        cameraNode.look(at: SCNVector3(0, 1.7, cameraNode.position.z + 8))
+        updateRunnerAnimation(speedMetersPerSecond: displayedSpeedMetersPerSecond)
 
-        let cameraZ = Double(cameraNode.position.z)
-        let recycled = pool.recycleIfNeeded(cameraZ: cameraZ)
+        travelZ += speed * dt
+
+        let baseY = tuning.camera.heightY
+        let bobAmplitude = min(tuning.camera.bobMaxAmplitude, speed * tuning.camera.bobSpeedToAmplitudeGain)
+        let swayAmplitude = min(tuning.camera.swayMaxAmplitude, speed * tuning.camera.swaySpeedToAmplitudeGain)
+        let bob = sin(time * tuning.camera.bobFrequency) * bobAmplitude
+        let sway = cos(time * tuning.camera.swayFrequency) * swayAmplitude
+
+        if let runnerNode {
+            runnerNode.position = runnerPosition(travelZ: travelZ)
+
+            cameraNode.position.x = CGFloat(tuning.camera.baseX + sway)
+            cameraNode.position.y = CGFloat(baseY + bob)
+            cameraNode.position.z = runnerNode.position.z - CGFloat(tuning.camera.backOffsetZ)
+
+            let lookAt = SCNVector3(
+                runnerNode.position.x,
+                CGFloat(tuning.camera.lookAtHeightY),
+                runnerNode.position.z
+            )
+            cameraNode.look(at: lookAt)
+        }
+
+        let progressZ = travelZ + tuning.runner.aheadOffsetZ
+        let recycled = pool.recycleIfNeeded(cameraZ: progressZ)
         for newStartZ in recycled {
             guard let node = segmentNodes.first else { continue }
             segmentNodes.removeFirst()
@@ -232,6 +360,154 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
         } else {
             return decorationAssets.makeTreeNode()
         }
+    }
+
+    private func installRunner(into scene: SCNScene) {
+        guard runnerNode == nil else { return }
+
+        let tuning = tuningLock.withLock { $0.tuning }
+
+        let runnerScene: SCNScene?
+        if let loaded = SCNScene(named: "Runner.usdz") {
+            runnerScene = loaded
+        } else if let url = Bundle.main.url(forResource: "Runner", withExtension: "usdz") {
+            runnerScene = try? SCNScene(url: url, options: nil)
+        } else {
+            runnerScene = nil
+        }
+
+        guard let runnerScene else {
+            logger.error("Runner.usdz not found in bundle. Add it to Copy Bundle Resources.")
+            return
+        }
+
+        let clonedRoot = runnerScene.rootNode.clone()
+        clonedRoot.name = "runner"
+
+        let scale = tuning.runner.scale
+        clonedRoot.scale = SCNVector3(CGFloat(scale), CGFloat(scale), CGFloat(scale))
+        clonedRoot.eulerAngles.y = CGFloat(tuning.runner.yawRadians)
+
+        runnerSkinnedNode = Self.findFirstSkinnedNode(in: clonedRoot)
+        runnerSkeletonNode = clonedRoot.childNode(withName: "Skeleton", recursively: true)
+
+        if runnerSkinnedNode == nil {
+            logger.error("Runner.usdz loaded, but no skinned node found (skinner == nil everywhere).")
+        }
+        if runnerSkeletonNode == nil {
+            logger.error("Runner.usdz loaded, but no node named \"Skeleton\" found.")
+        }
+
+        clonedRoot.position = runnerPosition(travelZ: travelZ)
+
+        if let runnerSkinnedNode {
+            let minY = Double(runnerSkinnedNode.boundingBox.min.y)
+            let groundOffset = (-minY * scale) + tuning.runner.additionalGroundOffsetY
+            clonedRoot.position.y = CGFloat(groundOffset)
+        }
+
+        scene.rootNode.addChildNode(clonedRoot)
+        runnerNode = clonedRoot
+
+        installRunnerAnimationPlayers()
+    }
+
+    private func installRunnerAnimationPlayers() {
+        guard let runnerSkeletonNode else { return }
+
+        func key(containing token: String) -> String? {
+            runnerSkeletonNode.animationKeys.first(where: { $0.localizedCaseInsensitiveContains(token) })
+        }
+
+        guard
+            let idleKey = key(containing: "Idle"),
+            let slowKey = key(containing: "SlowRun"),
+            let fastKey = key(containing: "FastRun")
+        else {
+            logger.error("Runner Skeleton animationKeys are missing expected clips (Idle/SlowRun/FastRun). Keys: \(runnerSkeletonNode.animationKeys, privacy: .public)")
+            return
+        }
+
+        idlePlayer = runnerSkeletonNode.animationPlayer(forKey: idleKey)
+        slowRunPlayer = runnerSkeletonNode.animationPlayer(forKey: slowKey)
+        fastRunPlayer = runnerSkeletonNode.animationPlayer(forKey: fastKey)
+
+        guard let idlePlayer, let slowRunPlayer, let fastRunPlayer else {
+            logger.error("Failed to create SCNAnimationPlayer(s) for Runner clips.")
+            return
+        }
+
+        for player in [idlePlayer, slowRunPlayer, fastRunPlayer] {
+            player.animation.repeatCount = .greatestFiniteMagnitude
+            player.play()
+        }
+
+        idlePlayer.blendFactor = 1
+        slowRunPlayer.blendFactor = 0
+        fastRunPlayer.blendFactor = 0
+    }
+
+    private func updateRunnerAnimation(speedMetersPerSecond: Double) {
+        guard let idlePlayer, let slowRunPlayer, let fastRunPlayer else { return }
+
+        let tuning = tuningLock.withLock { $0.tuning }
+        animationBlender.configuration = tuning.blender
+
+        let blend = animationBlender.blend(speedMetersPerSecond: speedMetersPerSecond)
+        idlePlayer.blendFactor = blend.idleWeight
+        slowRunPlayer.blendFactor = blend.slowRunWeight
+        fastRunPlayer.blendFactor = blend.fastRunWeight
+
+        slowRunPlayer.speed = blend.playbackRate
+        fastRunPlayer.speed = blend.playbackRate
+    }
+
+    private func runnerPosition(travelZ: Double) -> SCNVector3 {
+        let tuning = tuningLock.withLock { $0.tuning }
+        return SCNVector3(
+            CGFloat(tuning.runner.x),
+            runnerNode?.position.y ?? 0,
+            CGFloat(travelZ + tuning.runner.aheadOffsetZ)
+        )
+    }
+
+    private func initialCameraZ(tuning: RunnerSceneRenderer.Tuning) -> Double {
+        (travelZ + tuning.runner.aheadOffsetZ) - tuning.camera.backOffsetZ
+    }
+
+    var tuning: RunnerSceneRenderer.Tuning {
+        tuningLock.withLock { $0.tuning }
+    }
+
+    func setTuning(_ tuning: RunnerSceneRenderer.Tuning) {
+        tuningLock.withLock { $0.tuning = tuning }
+    }
+
+    private func applyTuning(_ tuning: RunnerSceneRenderer.Tuning) {
+        guard let runnerNode else { return }
+
+        camera.fieldOfView = CGFloat(tuning.camera.fieldOfViewDegrees)
+
+        runnerNode.scale = SCNVector3(
+            CGFloat(tuning.runner.scale),
+            CGFloat(tuning.runner.scale),
+            CGFloat(tuning.runner.scale)
+        )
+        runnerNode.eulerAngles.y = CGFloat(tuning.runner.yawRadians)
+
+        if let runnerSkinnedNode {
+            let minY = Double(runnerSkinnedNode.boundingBox.min.y)
+            let groundOffset = (-minY * tuning.runner.scale) + tuning.runner.additionalGroundOffsetY
+            runnerNode.position.y = CGFloat(groundOffset)
+        }
+    }
+
+    private static func findFirstSkinnedNode(in node: SCNNode) -> SCNNode? {
+        if node.skinner != nil { return node }
+        for child in node.childNodes {
+            if let found = findFirstSkinnedNode(in: child) { return found }
+        }
+        return nil
     }
 }
 

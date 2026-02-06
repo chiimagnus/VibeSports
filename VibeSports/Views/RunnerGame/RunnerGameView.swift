@@ -4,6 +4,7 @@ struct RunnerGameView: View {
     let dependencies: AppDependencies
 
     @StateObject private var viewModel: RunnerGameViewModel
+    @EnvironmentObject private var debugTools: DebugToolsStore
 
     init(dependencies: AppDependencies) {
         self.dependencies = dependencies
@@ -19,7 +20,6 @@ struct RunnerGameView: View {
             VStack {
                 headerBar
                 Spacer(minLength: 0)
-                footerOverlay
             }
             .padding(16)
 
@@ -28,6 +28,9 @@ struct RunnerGameView: View {
             }
         }
         .frame(minWidth: 900, minHeight: 600)
+        .onAppear {
+            debugTools.attach(sceneRenderer: viewModel.sceneRenderer)
+        }
         .focusedSceneValue(
             \.showPoseOverlay,
             Binding(
@@ -50,6 +53,7 @@ struct RunnerGameView: View {
             )
         )
         .onDisappear {
+            debugTools.detach(sceneRenderer: viewModel.sceneRenderer)
             viewModel.stopIfNeeded()
         }
     }
@@ -123,13 +127,6 @@ struct RunnerGameView: View {
                 }
                 .frame(width: 260, height: 180)
         }
-    }
-
-    private var footerOverlay: some View {
-        ZStack(alignment: .bottom) {
-            RunnerAvatarView(speedMetersPerSecond: viewModel.metrics.speedMetersPerSecond)
-        }
-        .frame(maxWidth: .infinity)
     }
 
     private var idleOverlay: some View {
