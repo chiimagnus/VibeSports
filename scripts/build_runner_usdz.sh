@@ -88,6 +88,20 @@ extract_usdc "${idle}" "Idle.usdc"
 extract_usdc "${slow}" "SlowRun.usdc"
 extract_usdc "${fast}" "FastRun.usdc"
 
+mask_animation_only() {
+  local input_usdc="$1"
+  local output_usdc="$2"
+  local animation_prim_path="$3"
+
+  # Extract only the SkelAnimation prim (and its authored data) from the source layer.
+  # This strips away meshes/materials/skin data so we don't end up packaging 3 skins.
+  usdcat --flatten --mask "${animation_prim_path}" -o "${workdir}/${output_usdc}" "${workdir}/${input_usdc}" >/dev/null
+}
+
+# Keep only the animation clip from slow/fast layers to avoid packaging extra mesh/skin data.
+mask_animation_only "SlowRun.usdc" "SlowRunAnim.usdc" "/Slow_Run/mixamorig_Hips/Skeleton/Animation"
+mask_animation_only "FastRun.usdc" "FastRunAnim.usdc" "/Fast_Run/mixamorig_Hips/Skeleton/Animation"
+
 default_anim="Idle"
 case "${default_clip}" in
   idle) default_anim="Idle" ;;
@@ -136,13 +150,13 @@ def Xform "Runner" (
             }
 
             def SkelAnimation "SlowRun" (
-                references = @SlowRun.usdc@</Slow_Run/mixamorig_Hips/Skeleton/Animation>
+                references = @SlowRunAnim.usdc@</Slow_Run/mixamorig_Hips/Skeleton/Animation>
             )
             {
             }
 
             def SkelAnimation "FastRun" (
-                references = @FastRun.usdc@</Fast_Run/mixamorig_Hips/Skeleton/Animation>
+                references = @FastRunAnim.usdc@</Fast_Run/mixamorig_Hips/Skeleton/Animation>
             )
             {
             }
@@ -158,7 +172,7 @@ usdcat --loadOnly "${runner_usda}" >/dev/null
 
 (
   cd "${workdir}"
-  usdzip "${out}" "Runner.usda" "Idle.usdc" "SlowRun.usdc" "FastRun.usdc" >/dev/null
+  usdzip "${out}" "Runner.usda" "Idle.usdc" "SlowRunAnim.usdc" "FastRunAnim.usdc" >/dev/null
 )
 
 echo "OK: wrote ${out}"
