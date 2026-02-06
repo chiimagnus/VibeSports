@@ -11,7 +11,7 @@ Usage:
     --idle "/path/to/Idle.usdz" \
     --slow "/path/to/Slow Run.usdz" \
     --fast "/path/to/Fast Run.usdz" \
-    --out  "VibeSports/Resources/Runner/Runner.usdz" \
+    --out  "VibeSports/Resources/Runner.usdz" \
     [--default idle|slow|fast]
 
 Notes:

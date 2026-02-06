@@ -19,7 +19,6 @@ struct RunnerGameView: View {
             VStack {
                 headerBar
                 Spacer(minLength: 0)
-                footerOverlay
             }
             .padding(16)
 
@@ -123,13 +122,6 @@ struct RunnerGameView: View {
                 }
                 .frame(width: 260, height: 180)
         }
-    }
-
-    private var footerOverlay: some View {
-        ZStack(alignment: .bottom) {
-            RunnerAvatarView(speedMetersPerSecond: viewModel.metrics.speedMetersPerSecond)
-        }
-        .frame(maxWidth: .infinity)
     }
 
     private var idleOverlay: some View {

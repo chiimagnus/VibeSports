@@ -56,6 +56,8 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
     private let configuration: RunnerSceneRenderer.Configuration
     private var pool: TerrainSegmentPool
 
+    private let logger = Logger(subsystem: "com.chiimagnus.VibeSports", category: "RunnerSceneAnimator")
+
     private let lock = OSAllocatedUnfairLock(initialState: SpeedState())
 
     private struct SpeedState {
@@ -68,6 +70,34 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
     private let camera = SCNCamera()
     private var segmentNodes: [SCNNode] = []
     private let decorationAssets = DecorationAssets()
+
+    private var runnerNode: SCNNode?
+    private var runnerSkinnedNode: SCNNode?
+    private var runnerSkeletonNode: SCNNode?
+
+    private let animationBlender = RunnerAnimationBlender()
+    private var idlePlayer: SCNAnimationPlayer?
+    private var slowRunPlayer: SCNAnimationPlayer?
+    private var fastRunPlayer: SCNAnimationPlayer?
+
+    private var displayedSpeedMetersPerSecond: Double = 0
+    private var travelZ: Double = 0
+
+    private struct RunnerConfiguration: Sendable, Equatable {
+        var scale: Double = 0.01
+        var yawRadians: Double = 0
+        var aheadOffsetZ: Double = 6.0
+        var additionalGroundOffsetY: Double = 0.0
+        var x: Double = 0.0
+
+        var cameraHeightY: Double = 2.2
+        var cameraBackOffsetZ: Double = 5.0
+        var cameraLookAtHeightY: Double = 1.4
+        var cameraBobFrequency: Double = 6.0
+        var cameraSwayFrequency: Double = 3.5
+    }
+
+    private var runnerConfiguration = RunnerConfiguration()
 
     init(configuration: RunnerSceneRenderer.Configuration) {
         self.configuration = configuration
@@ -84,9 +114,11 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
 
         cameraNode.camera = camera
         camera.fieldOfView = 70
-        cameraNode.position = SCNVector3(0, 2.2, 0)
-        cameraNode.look(at: SCNVector3(0, 1.7, 8))
+        travelZ = 0
+        cameraNode.position = SCNVector3(0, CGFloat(runnerConfiguration.cameraHeightY), CGFloat(initialCameraZ()))
         scene.rootNode.addChildNode(cameraNode)
+
+        installRunner(into: scene)
 
         segmentNodes = pool.segments.map { segment in
             makeSegmentNode(startZ: segment.startZ)
@@ -100,11 +132,24 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
     func reset() {
         lastTime = nil
         lock.withLock { $0.speedMetersPerSecond = 0 }
+        displayedSpeedMetersPerSecond = 0
+        travelZ = 0
 
         pool = TerrainSegmentPool(activeSegments: configuration.activeSegments, segmentLength: configuration.segmentLength)
 
-        cameraNode.position = SCNVector3(0, 2.2, 0)
-        cameraNode.look(at: SCNVector3(0, 1.7, 8))
+        cameraNode.position = SCNVector3(0, CGFloat(runnerConfiguration.cameraHeightY), CGFloat(initialCameraZ()))
+
+        if let runnerNode {
+            runnerNode.position = runnerPosition(travelZ: travelZ)
+        }
+
+        idlePlayer?.blendFactor = 1
+        slowRunPlayer?.blendFactor = 0
+        fastRunPlayer?.blendFactor = 0
+        idlePlayer?.speed = 1
+        slowRunPlayer?.speed = 1
+        fastRunPlayer?.speed = 1
+
         for (index, segment) in pool.segments.enumerated() where index < segmentNodes.count {
             updateSegmentNode(segmentNodes[index], startZ: segment.startZ)
         }
@@ -126,23 +171,33 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
         lastTime = time
 
         let speed = lock.withLock { $0.speedMetersPerSecond }
-        if speed > 0 {
-            let advance = speed * dt
-            cameraNode.position.z += CGFloat(advance)
+        displayedSpeedMetersPerSecond += (speed - displayedSpeedMetersPerSecond) * 0.20
 
-            let bob = sin(time * 6.0) * min(0.12, speed * 0.02)
-            let sway = cos(time * 3.5) * min(0.08, speed * 0.015)
-            cameraNode.position.y = 2.2 + CGFloat(bob)
+        updateRunnerAnimation(speedMetersPerSecond: displayedSpeedMetersPerSecond)
+
+        travelZ += speed * dt
+
+        let baseY = runnerConfiguration.cameraHeightY
+        let bob = sin(time * runnerConfiguration.cameraBobFrequency) * min(0.12, speed * 0.02)
+        let sway = cos(time * runnerConfiguration.cameraSwayFrequency) * min(0.08, speed * 0.015)
+
+        if let runnerNode {
+            runnerNode.position = runnerPosition(travelZ: travelZ)
+
             cameraNode.position.x = CGFloat(sway)
-        } else {
-            cameraNode.position.y = 2.2
-            cameraNode.position.x = 0
+            cameraNode.position.y = CGFloat(baseY + bob)
+            cameraNode.position.z = runnerNode.position.z - CGFloat(runnerConfiguration.cameraBackOffsetZ)
+
+            let lookAt = SCNVector3(
+                runnerNode.position.x,
+                CGFloat(runnerConfiguration.cameraLookAtHeightY),
+                runnerNode.position.z
+            )
+            cameraNode.look(at: lookAt)
         }
 
-        cameraNode.look(at: SCNVector3(0, 1.7, cameraNode.position.z + 8))
-
-        let cameraZ = Double(cameraNode.position.z)
-        let recycled = pool.recycleIfNeeded(cameraZ: cameraZ)
+        let progressZ = travelZ + runnerConfiguration.aheadOffsetZ
+        let recycled = pool.recycleIfNeeded(cameraZ: progressZ)
         for newStartZ in recycled {
             guard let node = segmentNodes.first else { continue }
             segmentNodes.removeFirst()
@@ -232,6 +287,121 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
         } else {
             return decorationAssets.makeTreeNode()
         }
+    }
+
+    private func installRunner(into scene: SCNScene) {
+        guard runnerNode == nil else { return }
+
+        let runnerScene: SCNScene?
+        if let loaded = SCNScene(named: "Runner.usdz") {
+            runnerScene = loaded
+        } else if let url = Bundle.main.url(forResource: "Runner", withExtension: "usdz") {
+            runnerScene = try? SCNScene(url: url, options: nil)
+        } else {
+            runnerScene = nil
+        }
+
+        guard let runnerScene else {
+            logger.error("Runner.usdz not found in bundle. Add it to Copy Bundle Resources.")
+            return
+        }
+
+        let clonedRoot = runnerScene.rootNode.clone()
+        clonedRoot.name = "runner"
+
+        let scale = runnerConfiguration.scale
+        clonedRoot.scale = SCNVector3(CGFloat(scale), CGFloat(scale), CGFloat(scale))
+        clonedRoot.eulerAngles.y = CGFloat(runnerConfiguration.yawRadians)
+
+        runnerSkinnedNode = Self.findFirstSkinnedNode(in: clonedRoot)
+        runnerSkeletonNode = clonedRoot.childNode(withName: "Skeleton", recursively: true)
+
+        if runnerSkinnedNode == nil {
+            logger.error("Runner.usdz loaded, but no skinned node found (skinner == nil everywhere).")
+        }
+        if runnerSkeletonNode == nil {
+            logger.error("Runner.usdz loaded, but no node named \"Skeleton\" found.")
+        }
+
+        clonedRoot.position = runnerPosition(travelZ: travelZ)
+
+        if let runnerSkinnedNode {
+            let minY = Double(runnerSkinnedNode.boundingBox.min.y)
+            let groundOffset = (-minY * scale) + runnerConfiguration.additionalGroundOffsetY
+            clonedRoot.position.y = CGFloat(groundOffset)
+        }
+
+        scene.rootNode.addChildNode(clonedRoot)
+        runnerNode = clonedRoot
+
+        installRunnerAnimationPlayers()
+    }
+
+    private func installRunnerAnimationPlayers() {
+        guard let runnerSkeletonNode else { return }
+
+        func key(containing token: String) -> String? {
+            runnerSkeletonNode.animationKeys.first(where: { $0.localizedCaseInsensitiveContains(token) })
+        }
+
+        guard
+            let idleKey = key(containing: "Idle"),
+            let slowKey = key(containing: "SlowRun"),
+            let fastKey = key(containing: "FastRun")
+        else {
+            logger.error("Runner Skeleton animationKeys are missing expected clips (Idle/SlowRun/FastRun). Keys: \(runnerSkeletonNode.animationKeys, privacy: .public)")
+            return
+        }
+
+        idlePlayer = runnerSkeletonNode.animationPlayer(forKey: idleKey)
+        slowRunPlayer = runnerSkeletonNode.animationPlayer(forKey: slowKey)
+        fastRunPlayer = runnerSkeletonNode.animationPlayer(forKey: fastKey)
+
+        guard let idlePlayer, let slowRunPlayer, let fastRunPlayer else {
+            logger.error("Failed to create SCNAnimationPlayer(s) for Runner clips.")
+            return
+        }
+
+        for player in [idlePlayer, slowRunPlayer, fastRunPlayer] {
+            player.animation.repeatCount = .greatestFiniteMagnitude
+            player.play()
+        }
+
+        idlePlayer.blendFactor = 1
+        slowRunPlayer.blendFactor = 0
+        fastRunPlayer.blendFactor = 0
+    }
+
+    private func updateRunnerAnimation(speedMetersPerSecond: Double) {
+        guard let idlePlayer, let slowRunPlayer, let fastRunPlayer else { return }
+
+        let blend = animationBlender.blend(speedMetersPerSecond: speedMetersPerSecond)
+        idlePlayer.blendFactor = blend.idleWeight
+        slowRunPlayer.blendFactor = blend.slowRunWeight
+        fastRunPlayer.blendFactor = blend.fastRunWeight
+
+        slowRunPlayer.speed = blend.playbackRate
+        fastRunPlayer.speed = blend.playbackRate
+    }
+
+    private func runnerPosition(travelZ: Double) -> SCNVector3 {
+        SCNVector3(
+            CGFloat(runnerConfiguration.x),
+            runnerNode?.position.y ?? 0,
+            CGFloat(travelZ + runnerConfiguration.aheadOffsetZ)
+        )
+    }
+
+    private func initialCameraZ() -> Double {
+        (travelZ + runnerConfiguration.aheadOffsetZ) - runnerConfiguration.cameraBackOffsetZ
+    }
+
+    private static func findFirstSkinnedNode(in node: SCNNode) -> SCNNode? {
+        if node.skinner != nil { return node }
+        for child in node.childNodes {
+            if let found = findFirstSkinnedNode(in: child) { return found }
+        }
+        return nil
     }
 }
 
