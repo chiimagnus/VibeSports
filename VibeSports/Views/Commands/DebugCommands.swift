@@ -5,6 +5,10 @@ struct DebugCommands: Commands {
     @FocusedValue(\.mirrorCamera) private var mirrorCamera
     @FocusedValue(\.poseStabilizationEnabled) private var poseStabilizationEnabled
 
+#if DEBUG
+    @Environment(\.openWindow) private var openWindow
+#endif
+
     var body: some Commands {
         CommandMenu("Debug") {
             if let showPoseOverlay {
@@ -35,6 +39,15 @@ struct DebugCommands: Commands {
                     .disabled(true)
                     .keyboardShortcut("s", modifiers: [.command, .shift])
             }
+
+#if DEBUG
+            Divider()
+
+            Button("Runner Animations…") {
+                openWindow(id: "runner-animations")
+            }
+            .keyboardShortcut("r", modifiers: [.command, .shift])
+#endif
         }
     }
 }
