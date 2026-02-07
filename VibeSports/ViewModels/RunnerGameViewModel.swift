@@ -20,6 +20,9 @@ final class RunnerGameViewModel: ObservableObject {
     @Published private(set) var poseStabilizationEnabled: Bool = true
     @Published private(set) var stabilizedPose: Pose?
 
+    @Published private(set) var showWorldAxes: Bool = false
+    @Published private(set) var showRunnerAxes: Bool = false
+
     private let clock: any Clock
     private let settingsRepository: any SettingsRepository
 
@@ -46,11 +49,7 @@ final class RunnerGameViewModel: ObservableObject {
         )
 
         let cadence = sceneRenderer.tuning.cadence
-        updateCadenceMotionConfiguration(
-            strideLengthMetersPerStep: cadence.strideLengthMetersPerStep,
-            cadenceSmoothingAlpha: cadence.smoothingAlpha,
-            cadenceTimeoutToZero: cadence.timeoutToZero
-        )
+        updateStrideLengthMetersPerStep(cadence.strideLengthMetersPerStep)
 
         cameraSession.objectWillChange
             .sink { [weak self] _ in
@@ -143,14 +142,18 @@ final class RunnerGameViewModel: ObservableObject {
         } catch {}
     }
 
-    func updateCadenceMotionConfiguration(
-        strideLengthMetersPerStep: Double,
-        cadenceSmoothingAlpha: Double,
-        cadenceTimeoutToZero: Double
-    ) {
+    func updateShowWorldAxes(_ isEnabled: Bool) {
+        showWorldAxes = isEnabled
+        sceneRenderer.setShowWorldAxes(isEnabled)
+    }
+
+    func updateShowRunnerAxes(_ isEnabled: Bool) {
+        showRunnerAxes = isEnabled
+        sceneRenderer.setShowRunnerAxes(isEnabled)
+    }
+
+    func updateStrideLengthMetersPerStep(_ strideLengthMetersPerStep: Double) {
         runningMetrics.configuration.strideLengthMetersPerStep = max(0, strideLengthMetersPerStep)
-        runningMetrics.configuration.cadenceConfiguration.smoothingAlpha = min(max(cadenceSmoothingAlpha, 0), 1)
-        runningMetrics.configuration.cadenceConfiguration.timeoutToZero = max(0.1, cadenceTimeoutToZero)
     }
 
     private func handlePose(_ pose: Pose?) {

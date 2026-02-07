@@ -4,6 +4,8 @@ struct DebugCommands: Commands {
     @FocusedValue(\.showPoseOverlay) private var showPoseOverlay
     @FocusedValue(\.mirrorCamera) private var mirrorCamera
     @FocusedValue(\.poseStabilizationEnabled) private var poseStabilizationEnabled
+    @FocusedValue(\.showWorldAxes) private var showWorldAxes
+    @FocusedValue(\.showRunnerAxes) private var showRunnerAxes
 
 #if DEBUG
     @Environment(\.openWindow) private var openWindow
@@ -41,6 +43,21 @@ struct DebugCommands: Commands {
             }
 
 #if DEBUG
+            Divider()
+
+            if let showWorldAxes {
+                Toggle("World Axes", isOn: showWorldAxes)
+            } else {
+                Button("World Axes") {}
+                    .disabled(true)
+            }
+
+            if let showRunnerAxes {
+                Toggle("Runner Axes", isOn: showRunnerAxes)
+            } else {
+                Button("Runner Axes") {}
+                    .disabled(true)
+            }
             Divider()
 
             Button("Runner Animations…") {

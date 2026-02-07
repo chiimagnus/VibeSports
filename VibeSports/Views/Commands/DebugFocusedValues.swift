@@ -12,6 +12,14 @@ private struct PoseStabilizationFocusedKey: FocusedValueKey {
     typealias Value = Binding<Bool>
 }
 
+private struct ShowWorldAxesFocusedKey: FocusedValueKey {
+    typealias Value = Binding<Bool>
+}
+
+private struct ShowRunnerAxesFocusedKey: FocusedValueKey {
+    typealias Value = Binding<Bool>
+}
+
 extension FocusedValues {
     var showPoseOverlay: Binding<Bool>? {
         get { self[ShowPoseOverlayFocusedKey.self] }
@@ -26,5 +34,15 @@ extension FocusedValues {
     var poseStabilizationEnabled: Binding<Bool>? {
         get { self[PoseStabilizationFocusedKey.self] }
         set { self[PoseStabilizationFocusedKey.self] = newValue }
+    }
+
+    var showWorldAxes: Binding<Bool>? {
+        get { self[ShowWorldAxesFocusedKey.self] }
+        set { self[ShowWorldAxesFocusedKey.self] = newValue }
+    }
+
+    var showRunnerAxes: Binding<Bool>? {
+        get { self[ShowRunnerAxesFocusedKey.self] }
+        set { self[ShowRunnerAxesFocusedKey.self] = newValue }
     }
 }
