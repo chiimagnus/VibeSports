@@ -111,7 +111,7 @@ Run: `xcodebuild -project VibeSports.xcodeproj -scheme VibeSports -destination '
 
 ### P1：把 cadence/speed 送进渲染器，并用 cadence 驱动播放速率
 
-#### Task 4：引入 `RunnerMotion`（跨层 DTO）
+#### ✅Task 4：引入 `RunnerMotion`（跨层 DTO）
 
 **Files:**
 - Create: `VibeSports/Models/Runner/RunnerMotion.swift`
@@ -132,7 +132,7 @@ Run: `xcodebuild -project VibeSports.xcodeproj -scheme VibeSports -destination '
 
 ---
 
-#### Task 5：`RunnerSceneRenderer` API 改为接收 `RunnerMotion`
+#### ✅Task 5：`RunnerSceneRenderer` API 改为接收 `RunnerMotion`
 
 **Files:**
 - Modify: `VibeSports/Services/Renderer/RunnerSceneRenderer.swift`
@@ -148,7 +148,7 @@ Run: `xcodebuild -project VibeSports.xcodeproj -scheme VibeSports -destination '
 
 ---
 
-#### Task 6：用 cadence 计算跑步动画播放速率（只同步步频）
+#### ✅Task 6：用 cadence 计算跑步动画播放速率（只同步步频）
 
 **Files:**
 - Modify: `VibeSports/Services/Renderer/RunnerSceneRenderer.swift`
@@ -169,7 +169,7 @@ Run: `xcodebuild -project VibeSports.xcodeproj -scheme VibeSports -destination '
 
 ### P1：把关键参数放进 Debug 调参面板（便于校准）
 
-#### Task 7：新增 cadence→speed / cadence→rate 相关 tuning 参数并可实时调
+#### ✅Task 7：新增 cadence→speed / cadence→rate 相关 tuning 参数并可实时调
 
 **Files:**
 - Modify: `VibeSports/Services/Renderer/RunnerSceneRenderer.swift`（`Tuning` 扩展字段）
@@ -190,7 +190,7 @@ Run: `xcodebuild -project VibeSports.xcodeproj -scheme VibeSports -destination '
 
 ### P1：收尾与回归
 
-#### Task 8：更新文档与回归命令
+#### ✅Task 8：更新文档与回归命令
 
 **Files:**
 - Modify: `.github/docs/business-logic.md`（补充：速度/动画已改为 cadence 驱动）
@@ -207,3 +207,9 @@ Run: `xcodebuild -project VibeSports.xcodeproj -scheme VibeSports -destination '
 - SlowRun/FastRun 每个动画 loop 里包含几步（默认 `2`；可通过肉眼校准 + Debug slider 解决）
 - cadence 的平滑/timeout 应放在 `RunningMetrics` 侧还是 renderer 侧（建议放 `RunningMetrics`，renderer 只做显示层的轻微滤波）
 
+---
+
+## 执行记录（2026-02-07）
+
+- Build：`xcodebuild -project VibeSports.xcodeproj -scheme VibeSports -destination 'platform=macOS' build` → `BUILD SUCCEEDED`
+- Test：`xcodebuild -project VibeSports.xcodeproj -scheme VibeSports -destination 'platform=macOS' test` → `TEST SUCCEEDED`
