@@ -5,14 +5,18 @@ final class RunningMetricsTests: XCTestCase {
     func test_speedIncreasesWhenMovementQualityHigh() {
         var metrics = RunningMetrics()
         let t0 = Date(timeIntervalSince1970: 0)
+        var latestSnapshot: RunningMetricsSnapshot?
 
-        _ = metrics.ingest(pose: Self.pose(leftWrist: .init(x: 0.4, y: 0.4), rightWrist: .init(x: 0.6, y: 0.4)), now: t0)
+        latestSnapshot = metrics.ingest(
+            pose: Self.pose(leftWrist: .init(x: 0.4, y: 0.4), rightWrist: .init(x: 0.6, y: 0.4)),
+            now: t0
+        )
 
         var now = t0
         for i in 1...20 {
             now = Date(timeIntervalSince1970: TimeInterval(i) * 0.05)
             let dy = (i % 2 == 0) ? 0.08 : -0.08
-            _ = metrics.ingest(
+            latestSnapshot = metrics.ingest(
                 pose: Self.pose(
                     leftWrist: .init(x: 0.4, y: 0.4 + dy),
                     rightWrist: .init(x: 0.6, y: 0.4 - dy)
@@ -21,28 +25,33 @@ final class RunningMetricsTests: XCTestCase {
             )
         }
 
-        XCTAssertGreaterThan(metrics.speedModel.speedMetersPerSecond, 0)
-        XCTAssertLessThanOrEqual(metrics.speedModel.speedMetersPerSecond, metrics.speedModel.configuration.maxSpeedMetersPerSecond)
+        XCTAssertGreaterThan(latestSnapshot?.cadenceStepsPerSecond ?? 0, 0)
+        XCTAssertGreaterThan(latestSnapshot?.speedMetersPerSecond ?? 0, 0)
     }
 
     func test_speedDecaysToZeroWhenNoPose() {
         var metrics = RunningMetrics()
         let t0 = Date(timeIntervalSince1970: 0)
+        var latestSnapshot: RunningMetricsSnapshot?
 
-        _ = metrics.ingest(
+        latestSnapshot = metrics.ingest(
             pose: Self.pose(leftWrist: .init(x: 0.4, y: 0.5), rightWrist: .init(x: 0.6, y: 0.3)),
             now: t0
         )
-        _ = metrics.ingest(
+        latestSnapshot = metrics.ingest(
             pose: Self.pose(leftWrist: .init(x: 0.4, y: 0.3), rightWrist: .init(x: 0.6, y: 0.5)),
             now: Date(timeIntervalSince1970: 0.05)
         )
 
         for i in 1...80 {
-            _ = metrics.ingest(pose: nil, now: Date(timeIntervalSince1970: 0.05 + TimeInterval(i) * 0.05))
+            latestSnapshot = metrics.ingest(
+                pose: nil,
+                now: Date(timeIntervalSince1970: 0.05 + TimeInterval(i) * 0.05)
+            )
         }
 
-        XCTAssertEqual(metrics.speedModel.speedMetersPerSecond, 0, accuracy: 0.0001)
+        XCTAssertEqual(latestSnapshot?.cadenceStepsPerSecond ?? 0, 0, accuracy: 0.0001)
+        XCTAssertEqual(latestSnapshot?.speedMetersPerSecond ?? 0, 0, accuracy: 0.0001)
     }
 
     func test_stepsIncreaseWhenArmPhaseAlternates() {
@@ -56,6 +65,28 @@ final class RunningMetricsTests: XCTestCase {
         _ = metrics.ingest(pose: Self.pose(leftWrist: .init(x: 0.4, y: 0.6), rightWrist: .init(x: 0.6, y: 0.4)), now: base.addingTimeInterval(0.10))
 
         XCTAssertGreaterThanOrEqual(metrics.stepDetector.stepCount, 2)
+    }
+
+    func test_stepDetectorReturnsEventWhenStepCounted() {
+        var detector = RunningStepDetector()
+        detector.configuration.minStepInterval = 0.01
+        detector.configuration.minQualityToCountStep = 0
+
+        let base = Date(timeIntervalSince1970: 0)
+        _ = detector.ingest(
+            pose: Self.pose(leftWrist: .init(x: 0.4, y: 0.6), rightWrist: .init(x: 0.6, y: 0.4)),
+            movementQuality: 1,
+            now: base
+        )
+
+        let event = detector.ingest(
+            pose: Self.pose(leftWrist: .init(x: 0.4, y: 0.4), rightWrist: .init(x: 0.6, y: 0.6)),
+            movementQuality: 1,
+            now: base.addingTimeInterval(0.05)
+        )
+
+        XCTAssertNotNil(event)
+        XCTAssertNotNil(event?.intervalSincePreviousStep)
     }
 
     func test_closeUpModeUsesShoulderDistance() {

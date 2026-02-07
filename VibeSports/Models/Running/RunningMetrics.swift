@@ -4,18 +4,29 @@ import Foundation
 struct RunningMetricsSnapshot: Sendable, Equatable {
     var poseDetected: Bool
     var movementQualityPercent: Int
+    var cadenceStepsPerSecond: Double
+    var cadenceStepsPerMinute: Double
     var speedMetersPerSecond: Double
     var speedKilometersPerHour: Double
     var steps: Int
     var isCloseUpMode: Bool
     var shoulderDistance: Double?
+
+    var motion: RunnerMotion {
+        RunnerMotion(
+            speedMetersPerSecond: speedMetersPerSecond,
+            cadenceStepsPerSecond: cadenceStepsPerSecond,
+            cadenceStepsPerMinute: cadenceStepsPerMinute
+        )
+    }
 }
 
 struct RunningMetrics: Sendable, Equatable {
     struct Configuration: Sendable, Equatable {
         var movementThreshold: Double = 1.0
-        var runningThreshold: Double = 0.25
         var smoothingAlpha: Double = 0.2
+        var strideLengthMetersPerStep: Double = 1.0
+        var cadenceConfiguration: CadenceModel.Configuration = .init()
 
         var closeUpShoulderDistanceThreshold: Double = 0.24
         var closeUpUpperBodyConfidenceThreshold: Double = 0.5
@@ -23,7 +34,7 @@ struct RunningMetrics: Sendable, Equatable {
     }
 
     var configuration = Configuration()
-    var speedModel = RunningSpeedModel()
+    var cadenceModel = CadenceModel()
     var stepDetector = RunningStepDetector()
 
     private var lastUpdateTime: Date?
@@ -34,7 +45,8 @@ struct RunningMetrics: Sendable, Equatable {
     private(set) var shoulderDistance: Double?
 
     mutating func reset() {
-        speedModel = RunningSpeedModel()
+        cadenceModel = CadenceModel()
+        cadenceModel.configuration = configuration.cadenceConfiguration
         stepDetector.reset()
         lastUpdateTime = nil
         lastQuality = 0
@@ -60,17 +72,24 @@ struct RunningMetrics: Sendable, Equatable {
         let smoothedQuality = (1 - configuration.smoothingAlpha) * lastQuality + configuration.smoothingAlpha * rawQuality
         lastQuality = smoothedQuality
 
-        let isMoving = smoothedQuality >= configuration.runningThreshold
-        speedModel.update(isMoving: isMoving, deltaTime: dt)
+        cadenceModel.configuration = configuration.cadenceConfiguration
+        if let stepEvent = stepDetector.ingest(pose: pose, movementQuality: smoothedQuality, now: now) {
+            cadenceModel.ingestStep(
+                now: now,
+                intervalSincePreviousStep: stepEvent.intervalSincePreviousStep
+            )
+        }
+        cadenceModel.update(now: now)
 
-        stepDetector.ingest(pose: pose, movementQuality: smoothedQuality, now: now)
-
-        let speedKmh = speedModel.speedMetersPerSecond * 3.6
+        let speedMetersPerSecond = cadenceModel.cadenceStepsPerSecond * max(0, configuration.strideLengthMetersPerStep)
+        let speedKmh = speedMetersPerSecond * 3.6
 
         return RunningMetricsSnapshot(
             poseDetected: poseDetected,
             movementQualityPercent: Int((smoothedQuality * 100).rounded()),
-            speedMetersPerSecond: speedModel.speedMetersPerSecond,
+            cadenceStepsPerSecond: cadenceModel.cadenceStepsPerSecond,
+            cadenceStepsPerMinute: cadenceModel.cadenceStepsPerMinute,
+            speedMetersPerSecond: speedMetersPerSecond,
             speedKilometersPerHour: speedKmh,
             steps: stepDetector.stepCount,
             isCloseUpMode: isCloseUpMode,

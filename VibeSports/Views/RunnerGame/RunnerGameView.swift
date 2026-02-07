@@ -30,6 +30,14 @@ struct RunnerGameView: View {
         .frame(minWidth: 900, minHeight: 600)
         .onAppear {
             debugTools.attach(sceneRenderer: viewModel.sceneRenderer)
+            syncCadenceConfiguration()
+        }
+        .onChange(of: debugTools.runnerTuning.cadence) { cadence in
+            viewModel.updateCadenceMotionConfiguration(
+                strideLengthMetersPerStep: cadence.strideLengthMetersPerStep,
+                cadenceSmoothingAlpha: cadence.smoothingAlpha,
+                cadenceTimeoutToZero: cadence.timeoutToZero
+            )
         }
         .focusedSceneValue(
             \.showPoseOverlay,
@@ -151,6 +159,15 @@ struct RunnerGameView: View {
                 }
         }
         .shadow(color: .black.opacity(0.25), radius: 22, y: 12)
+    }
+
+    private func syncCadenceConfiguration() {
+        let cadence = debugTools.runnerTuning.cadence
+        viewModel.updateCadenceMotionConfiguration(
+            strideLengthMetersPerStep: cadence.strideLengthMetersPerStep,
+            cadenceSmoothingAlpha: cadence.smoothingAlpha,
+            cadenceTimeoutToZero: cadence.timeoutToZero
+        )
     }
 }
 

@@ -1,6 +1,10 @@
 import Foundation
 
 struct RunningStepDetector: Sendable, Equatable {
+    struct StepEvent: Sendable, Equatable {
+        let intervalSincePreviousStep: TimeInterval?
+    }
+
     enum ArmPhase: Sendable, Equatable {
         case neutral
         case leftUp
@@ -25,28 +29,34 @@ struct RunningStepDetector: Sendable, Equatable {
         lastPhase = .neutral
     }
 
-    mutating func ingest(pose: Pose?, movementQuality: Double, now: Date) {
+    mutating func ingest(pose: Pose?, movementQuality: Double, now: Date) -> StepEvent? {
         guard movementQuality >= configuration.minQualityToCountStep else {
             lastPhase = .neutral
-            return
+            return nil
         }
 
         let phase = Self.detectArmPhase(from: pose, threshold: configuration.armPhaseThreshold)
         guard phase != .neutral else {
             lastPhase = .neutral
-            return
+            return nil
         }
 
         let phaseChanged = phase != lastPhase && !(phase == .neutral && lastPhase == .neutral)
-        guard phaseChanged else { return }
+        guard phaseChanged else { return nil }
 
+        let intervalSincePreviousStep: TimeInterval?
         if let lastStepTime {
-            guard now.timeIntervalSince(lastStepTime) >= configuration.minStepInterval else { return }
+            let interval = now.timeIntervalSince(lastStepTime)
+            guard interval >= configuration.minStepInterval else { return nil }
+            intervalSincePreviousStep = interval
+        } else {
+            intervalSincePreviousStep = nil
         }
 
         stepCount += 1
         lastStepTime = now
         lastPhase = phase
+        return StepEvent(intervalSincePreviousStep: intervalSincePreviousStep)
     }
 
     private static func detectArmPhase(from pose: Pose?, threshold: Double) -> ArmPhase {
@@ -65,4 +75,3 @@ struct RunningStepDetector: Sendable, Equatable {
         }
     }
 }
-

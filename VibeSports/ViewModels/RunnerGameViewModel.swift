@@ -36,11 +36,20 @@ final class RunnerGameViewModel: ObservableObject {
         self.metrics = RunningMetricsSnapshot(
             poseDetected: false,
             movementQualityPercent: 0,
+            cadenceStepsPerSecond: 0,
+            cadenceStepsPerMinute: 0,
             speedMetersPerSecond: 0,
             speedKilometersPerHour: 0,
             steps: 0,
             isCloseUpMode: false,
             shoulderDistance: nil
+        )
+
+        let cadence = sceneRenderer.tuning.cadence
+        updateCadenceMotionConfiguration(
+            strideLengthMetersPerStep: cadence.strideLengthMetersPerStep,
+            cadenceSmoothingAlpha: cadence.smoothingAlpha,
+            cadenceTimeoutToZero: cadence.timeoutToZero
         )
 
         cameraSession.objectWillChange
@@ -88,6 +97,8 @@ final class RunnerGameViewModel: ObservableObject {
         metrics = RunningMetricsSnapshot(
             poseDetected: false,
             movementQualityPercent: 0,
+            cadenceStepsPerSecond: 0,
+            cadenceStepsPerMinute: 0,
             speedMetersPerSecond: 0,
             speedKilometersPerHour: 0,
             steps: 0,
@@ -132,6 +143,16 @@ final class RunnerGameViewModel: ObservableObject {
         } catch {}
     }
 
+    func updateCadenceMotionConfiguration(
+        strideLengthMetersPerStep: Double,
+        cadenceSmoothingAlpha: Double,
+        cadenceTimeoutToZero: Double
+    ) {
+        runningMetrics.configuration.strideLengthMetersPerStep = max(0, strideLengthMetersPerStep)
+        runningMetrics.configuration.cadenceConfiguration.smoothingAlpha = min(max(cadenceSmoothingAlpha, 0), 1)
+        runningMetrics.configuration.cadenceConfiguration.timeoutToZero = max(0.1, cadenceTimeoutToZero)
+    }
+
     private func handlePose(_ pose: Pose?) {
         latestPose = pose
 
@@ -146,6 +167,6 @@ final class RunnerGameViewModel: ObservableObject {
             now: clock.now
         )
         metrics = snapshot
-        sceneRenderer.setSpeedMetersPerSecond(snapshot.speedMetersPerSecond)
+        sceneRenderer.setMotion(snapshot.motion)
     }
 }
