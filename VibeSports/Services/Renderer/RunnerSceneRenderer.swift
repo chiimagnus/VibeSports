@@ -40,6 +40,7 @@ final class RunnerSceneRenderer: ObservableObject {
             var strideLengthMetersPerStep: Double
             var stepsPerLoop: Double
             var smoothingAlpha: Double
+            var timeoutToZero: Double
         }
 
         var runner: Runner
@@ -72,7 +73,8 @@ final class RunnerSceneRenderer: ObservableObject {
             cadence: Cadence(
                 strideLengthMetersPerStep: 1.0,
                 stepsPerLoop: 2.0,
-                smoothingAlpha: 0.3
+                smoothingAlpha: 0.3,
+                timeoutToZero: 1.0
             ),
             blender: RunnerAnimationBlender.Configuration(),
             speedSmoothingAlpha: 0.20

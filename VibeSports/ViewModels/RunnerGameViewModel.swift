@@ -136,6 +136,16 @@ final class RunnerGameViewModel: ObservableObject {
         } catch {}
     }
 
+    func updateCadenceMotionConfiguration(
+        strideLengthMetersPerStep: Double,
+        cadenceSmoothingAlpha: Double,
+        cadenceTimeoutToZero: Double
+    ) {
+        runningMetrics.configuration.strideLengthMetersPerStep = max(0, strideLengthMetersPerStep)
+        runningMetrics.configuration.cadenceConfiguration.smoothingAlpha = min(max(cadenceSmoothingAlpha, 0), 1)
+        runningMetrics.configuration.cadenceConfiguration.timeoutToZero = max(0.1, cadenceTimeoutToZero)
+    }
+
     private func handlePose(_ pose: Pose?) {
         latestPose = pose
 

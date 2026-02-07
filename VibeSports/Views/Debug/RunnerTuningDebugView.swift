@@ -153,10 +153,16 @@ struct RunnerTuningDebugView: View {
                     in: 0.0...1.0,
                     format: "%.2f"
                 )
+                slider(
+                    "Cadence Timeout (s)",
+                    value: $debugTools.runnerTuning.cadence.timeoutToZero,
+                    in: 0.2...3.0,
+                    format: "%.2f"
+                )
             } header: {
                 Text("Cadence Motion")
             } footer: {
-                Text("Stride 用于 cadence→speed 映射（speed = cadence * stride）；Steps/Loop 用于 cadence→动画速率映射；Cadence Smooth α 越大，节奏响应越灵敏。")
+                Text("Stride 用于 cadence→speed 映射（speed = cadence * stride）；Steps/Loop 用于 cadence→动画速率映射；Cadence Smooth α 越大，节奏响应越灵敏；Cadence Timeout 控制无 step 后回落到 idle 的延迟。")
                     .foregroundStyle(.secondary)
             }
 
