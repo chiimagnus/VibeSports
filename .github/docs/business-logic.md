@@ -123,7 +123,7 @@ RunnerGameView 的核心布局：
 - `Debug → Mirror Camera`（⌘⇧M）
 - `Debug → Pose Stabilization`（⌘⇧S）
 - `Debug → Runner Animations…`（列出 `Runner.usdz` 内的动画 keys，支持 Play/Solo/Blend/Rate）
-- `Debug → Runner Tuning…`（实时调 runner/camera/cadence/blend 参数，用于校准大小/镜头距离/步频同步观感）
+- `Debug → Runner Tuning…`（实时调 runner/camera/cadence/blend 参数，包括 stride、steps/loop、cadence smoothing、cadence timeout）
 
 这些开关通过 `FocusedValues` 绑定到当前窗口的 `RunnerGameView`（`focusedSceneValue`）。
 
