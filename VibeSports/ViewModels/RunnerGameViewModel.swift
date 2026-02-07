@@ -45,6 +45,13 @@ final class RunnerGameViewModel: ObservableObject {
             shoulderDistance: nil
         )
 
+        let cadence = sceneRenderer.tuning.cadence
+        updateCadenceMotionConfiguration(
+            strideLengthMetersPerStep: cadence.strideLengthMetersPerStep,
+            cadenceSmoothingAlpha: cadence.smoothingAlpha,
+            cadenceTimeoutToZero: cadence.timeoutToZero
+        )
+
         cameraSession.objectWillChange
             .sink { [weak self] _ in
                 self?.objectWillChange.send()

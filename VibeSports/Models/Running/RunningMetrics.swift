@@ -73,8 +73,11 @@ struct RunningMetrics: Sendable, Equatable {
         lastQuality = smoothedQuality
 
         cadenceModel.configuration = configuration.cadenceConfiguration
-        if stepDetector.ingest(pose: pose, movementQuality: smoothedQuality, now: now) != nil {
-            cadenceModel.ingestStep(now: now)
+        if let stepEvent = stepDetector.ingest(pose: pose, movementQuality: smoothedQuality, now: now) {
+            cadenceModel.ingestStep(
+                now: now,
+                intervalSincePreviousStep: stepEvent.intervalSincePreviousStep
+            )
         }
         cadenceModel.update(now: now)
 

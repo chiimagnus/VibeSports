@@ -21,26 +21,15 @@ struct CadenceModel: Sendable, Equatable {
     }
 
     mutating func ingestStep(now: Date) {
-        if let lastStepTime {
-            let interval = now.timeIntervalSince(lastStepTime)
+        ingestStep(
+            now: now,
+            intervalSincePreviousStep: lastStepTime.map { now.timeIntervalSince($0) }
+        )
+    }
 
-            if interval < configuration.minStepInterval {
-                return
-            }
-
-            if interval > configuration.maxStepInterval {
-                cadenceStepsPerSecond = 0
-                self.lastStepTime = now
-                return
-            }
-
-            let instantaneousCadence = 1.0 / max(interval, 0.0001)
-            if cadenceStepsPerSecond == 0 {
-                cadenceStepsPerSecond = instantaneousCadence
-            } else {
-                let alpha = min(max(configuration.smoothingAlpha, 0), 1)
-                cadenceStepsPerSecond = (1 - alpha) * cadenceStepsPerSecond + alpha * instantaneousCadence
-            }
+    mutating func ingestStep(now: Date, intervalSincePreviousStep: TimeInterval?) {
+        if let intervalSincePreviousStep {
+            guard applyInterval(intervalSincePreviousStep) else { return }
         }
 
         lastStepTime = now
@@ -55,5 +44,25 @@ struct CadenceModel: Sendable, Equatable {
         if now.timeIntervalSince(lastStepTime) >= configuration.timeoutToZero {
             cadenceStepsPerSecond = 0
         }
+    }
+
+    private mutating func applyInterval(_ interval: TimeInterval) -> Bool {
+        if interval < configuration.minStepInterval {
+            return false
+        }
+
+        if interval > configuration.maxStepInterval {
+            cadenceStepsPerSecond = 0
+            return true
+        }
+
+        let instantaneousCadence = 1.0 / max(interval, 0.0001)
+        if cadenceStepsPerSecond == 0 {
+            cadenceStepsPerSecond = instantaneousCadence
+        } else {
+            let alpha = min(max(configuration.smoothingAlpha, 0), 1)
+            cadenceStepsPerSecond = (1 - alpha) * cadenceStepsPerSecond + alpha * instantaneousCadence
+        }
+        return true
     }
 }

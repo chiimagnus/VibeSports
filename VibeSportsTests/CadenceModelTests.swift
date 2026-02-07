@@ -41,4 +41,28 @@ final class CadenceModelTests: XCTestCase {
         model.ingestStep(now: base.addingTimeInterval(2.5))
         XCTAssertEqual(model.cadenceStepsPerSecond, 0, accuracy: 0.0001)
     }
+
+    func test_intervalDrivenIngestMatchesTimestampDrivenIngest() {
+        var timestampModel = CadenceModel()
+        var intervalModel = CadenceModel()
+
+        let base = Date(timeIntervalSince1970: 0)
+        let timestamps: [TimeInterval] = [0.0, 0.55, 1.00, 1.52, 2.05]
+
+        timestampModel.ingestStep(now: base.addingTimeInterval(timestamps[0]))
+        intervalModel.ingestStep(now: base.addingTimeInterval(timestamps[0]), intervalSincePreviousStep: nil)
+
+        for index in 1..<timestamps.count {
+            let now = base.addingTimeInterval(timestamps[index])
+            let interval = timestamps[index] - timestamps[index - 1]
+            timestampModel.ingestStep(now: now)
+            intervalModel.ingestStep(now: now, intervalSincePreviousStep: interval)
+        }
+
+        XCTAssertEqual(
+            intervalModel.cadenceStepsPerSecond,
+            timestampModel.cadenceStepsPerSecond,
+            accuracy: 0.0001
+        )
+    }
 }
