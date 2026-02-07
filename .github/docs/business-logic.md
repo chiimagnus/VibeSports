@@ -1,154 +1,77 @@
-# VibeSports 业务逻辑说明（macOS）
+# VibeSports 业务逻辑说明
 
-本文面向本仓库当前实现：**macOS 14+ / Swift 6 / SwiftUI + Combine + Vision + SceneKit + SwiftData**。
+## 1. 文档定位
 
-## 1. 产品目标（当前版本）
+本文只描述业务目标、业务规则与验收口径，不记录实现细节（代码结构、类设计、技术参数、API 调用等）。
 
-VibeSports 是一个「摄像头跑步游戏」的极简实现：
+技术实现说明统一放在 `AGENTS.md` 体系中维护（按目录分层维护）。
 
-- 主界面：SceneKit **3D 无限跑道**为主画面
-- 右上角：**摄像头小窗**
-- 角色：SceneKit 中的 **3D runner 角色**（`Runner.usdz`），动画随速度变化（Idle/SlowRun/FastRun 连续混合）
-- 姿态：Apple Vision 人体姿态关键点（肩/肘/腕/髋/膝/踝）用于估计“原地跑步”的运动质量与速度
-- Debug：可打开 **Pose Overlay**，并可启用 **Pose Stabilization**（减少末端关节闪烁）
+## 2. 产品目标
 
-> 已移除：体重/热量相关逻辑（不再计算 calories，也不再持久化 weight）。
+VibeSports 是一个“摄像头跑步游戏”：
 
-## 2. 架构分层（约束）
+- 用户在摄像头前原地跑步；
+- 系统估计用户跑步节奏；
+- 3D 场景与 3D 角色动作随用户节奏变化；
+- 用户获得即时反馈（速度、步数、动作状态）。
 
-仓库遵循四层归属：
+当前优先级是“动作同步感”优先于“真实速度精度”。
 
-- `VibeSports/Views/`：SwiftUI 展示与交互（不做业务计算）
-- `VibeSports/ViewModels/`：状态机与业务编排（订阅、转换、会话开始/结束）
-- `VibeSports/Models/`：纯算法/模型（禁止依赖 SwiftUI / Combine）
-- `VibeSports/Services/`：副作用/基础设施（Camera、Vision、Renderer、Settings）
+## 3. 核心业务流程
 
-依赖方向：`View → ViewModel → (protocol)Service → System`。
+1. 待机：用户进入主界面，可看到游戏画面与摄像头区域。  
+2. 开始：用户点击开始后进入会话，系统开始持续接收人体动作输入。  
+3. 运行：系统持续更新步频、步数、速度，并驱动场景前进与角色动画。  
+4. 停止：用户结束会话后，状态回到待机，指标归零，资源释放。  
 
-## 3. 关键业务：RunnerGame（单屏会话）
+## 4. 业务状态定义
 
-### 3.1 UI 入口与布局
+- 会话状态：`Idle`、`Running`、`Stopped`（实现上可与 `Idle` 合并表现）。  
+- 运动状态：`Idle 动画`、`SlowRun 动画`、`FastRun 动画`，按运动强度连续过渡。  
+- 输入状态：有人体输入 / 无人体输入。无输入持续一段时间后应平滑回到 idle。  
 
-- App 入口：`VibeSports/Views/VibeSportsApp.swift`
-- 根视图：`RunnerGameView`（当前版本直接作为 WindowGroup 的根）
-- 运行页：`VibeSports/Views/RunnerGame/RunnerGameView.swift`
+## 5. 指标口径（业务）
 
-RunnerGameView 的核心布局：
+- `step`：`stepCount` 每增加 1 记为 1 step。  
+- `cadence`：单位时间内的 step 数（可同时提供 steps/s 与 steps/min）。  
+- `speed`：由 cadence 推导的“游戏速度”，用于驱动场景前进与动画节奏。  
+- `movementQuality`：动作有效性指标，用于抑制噪声与误触发。  
+- `closeUpMode`：用户离镜头较近时启用的业务模式，用于保持动作识别可用性。  
 
-- 背景：`RunnerSceneView`（SceneKit 渲染）
-- 右上角：`CameraPreviewView`（AVCaptureSession 预览）
-- 摄像头 overlay：`PoseOverlayView`（Debug 开关控制）
-- 3D 角色与相机：由 `RunnerSceneRenderer` 负责加载 `Runner.usdz`、驱动第三人称相机跟随与动画混合
+## 6. 动画与场景业务规则
 
-### 3.2 会话状态机（ViewModel）
+- 角色动画使用三段跑步状态（Idle / SlowRun / FastRun）连续混合。  
+- 动画播放节奏应跟随用户 cadence 变化，避免“人慢跑、角色飞奔”的割裂感。  
+- 场景推进速度与动画节奏保持一致来源，避免视觉与数值脱节。  
+- 当用户停止动作时，角色与场景应在短时间内回落到 idle，而非突变。  
 
-`RunnerGameViewModel` 负责：
+## 7. Debug 业务能力
 
-- `mode`: `.idle` / `.running`
-- 摄像头会话启停：`startTapped()` / `stopTapped()`
-- Combine 订阅 `CameraSession.posePublisher` 获取 pose 并更新 `metrics`
-- 将 `metrics.motion` 送入渲染层：`sceneRenderer.setMotion(_:)`
+面向调试与校准，当前提供以下业务能力：
 
-相关文件：
+- 可开关姿态叠加显示；
+- 可切换镜像预览；
+- 可开关姿态稳定化显示；
+- 可查看动画片段是否存在并可播放；
+- 可实时调节动作同步相关业务参数（如步幅映射、动画步数映射、平滑与回落时间）。
 
-- ViewModel：`VibeSports/ViewModels/RunnerGame/RunnerGameViewModel.swift`
-- 摄像头：`VibeSports/Services/Camera/CameraSession.swift`
-- 3D 渲染：`VibeSports/Services/Renderer/RunnerSceneRenderer.swift`
-- 运动指标：`VibeSports/Models/Running/RunningMetrics.swift`
+## 8. 持久化业务项
 
-### 3.3 数据流（从摄像头到 3D）
+当前只持久化用户偏好类开关：
 
-1. `CameraSession` 启动 `AVCaptureSession` 并用 `AVCaptureVideoDataOutput` 输出帧
-2. `OutputHandler` 每 ~20Hz 取 `CVPixelBuffer`，调用 `PoseDetecting.detect(in:)`
-3. `PoseDetector` 使用 `VNDetectHumanBodyPoseRequest` 生成 `Pose`
-4. `RunnerGameViewModel` 接收 `Pose?`：
-   - 更新 `latestPose`
-   - 计算 `RunningMetricsSnapshot`（质量、cadence、速度、步数、close-up 模式等）
-   - 推进 `RunnerSceneRenderer`（cadence→speed 后驱动相机前进/抖动）
+- 是否显示姿态叠加；
+- 是否镜像摄像头预览；
+- 是否启用姿态稳定化显示。
 
-## 4. 姿态（Vision）与调试骨骼
+## 9. 非目标（当前阶段）
 
-### 4.1 Vision 姿态检测
+- 不做实时骨骼动捕映射（真人骨骼逐关节驱动 3D 骨骼）；  
+- 不追求医疗/竞技级速度精度；  
+- 不恢复体重/热量等已移除业务。  
 
-- `PoseDetector`：`VibeSports/Services/Pose/PoseDetector.swift`
-  - `recognizedPoints(.all)` 读取关节
-  - 目前映射 12 个关节：肩/肘/腕/髋/膝/踝（左右）
+## 10. 验收口径
 
-### 4.2 骨骼叠加（Debug）
-
-- 叠加渲染：`VibeSports/Views/Shared/Camera/PoseOverlayView.swift`
-- 开关入口：App 菜单 `Debug`（见下文 Command Menu）
-
-### 4.3 Pose Stabilization（减少闪烁）
-
-末端关节（手腕/肘）在 close-up + 遮挡/快动时置信度会抖动，直接按阈值画会造成“闪烁/断线”。
-
-当前实现引入 `PoseStabilizer`（仅用于骨骼叠加，不影响 RunningMetrics）：
-
-- 滞回阈值（on/off 两个阈值，避免边缘抖动）
-- 短时保留（短暂丢帧/掉点时仍显示上一帧位置）
-- EMA 平滑（低通滤波）
-
-实现与测试：
-
-- 稳定器：`VibeSports/Models/Pose/PoseStabilizer.swift`
-- 单测：`VibeSportsTests/PoseStabilizerTests.swift`
-
-## 5. 3D 无限场景（SceneKit）
-
-`RunnerSceneRenderer` 负责构建并驱动 SceneKit 场景：
-
-- 使用固定数量 terrain segment（`TerrainSegmentPool`）循环复用，避免节点无限增长
-- 相机位移由 cadence 映射出的 speed 推进，叠加轻微 bob/sway 模拟奔跑
-- 3D runner 角色来自 `VibeSports/Resources/Runner.usdz`，并在 `Skeleton` 节点上同时播放三段动画（loop）
-- 动画权重按速度实时计算（Idle↔SlowRun↔FastRun 连续混合），播放速率按 cadence 实时同步
-- 即使 speed=0，也保持相机朝向正确（避免“黑屏/看不到场景”）
-
-文件：
-
-- `VibeSports/Services/Renderer/RunnerSceneRenderer.swift`
-- `VibeSports/Services/Renderer/TerrainSegmentPool.swift`
-
-## 6. Debug Command Menu（命令菜单）
-
-实现文件：
-
-- `VibeSports/Views/Commands/DebugFocusedValues.swift`
-- `VibeSports/Views/Commands/DebugCommands.swift`
-- `VibeSports/Views/VibeSportsApp.swift`（注册 `.commands { DebugCommands() }`）
-
-当前提供：
-
-- `Debug → Pose Overlay`（⌘⇧P）
-- `Debug → Mirror Camera`（⌘⇧M）
-- `Debug → Pose Stabilization`（⌘⇧S）
-- `Debug → Runner Animations…`（列出 `Runner.usdz` 内的动画 keys，支持 Play/Solo/Blend/Rate）
-- `Debug → Runner Tuning…`（实时调 runner/camera/cadence/blend 参数，包括 stride、steps/loop、cadence smoothing、cadence timeout）
-
-这些开关通过 `FocusedValues` 绑定到当前窗口的 `RunnerGameView`（`focusedSceneValue`）。
-
-更多关于 cadence 动作同步实现：见 `.github/plans/2026-02-06-cadence-motion-sync-implementation-plan.md`。
-
-## 7. Settings（SwiftData 持久化）
-
-设置项集中在 `VibeSports/Services/Settings/`：
-
-- Model：`AppSettings`（SwiftData `@Model`）
-- Repo：`SwiftDataSettingsRepository`（load/update）
-
-当前持久化字段：
-
-- `showPoseOverlay`
-- `mirrorPoseOverlay`
-- `poseStabilizationEnabled`
-
-单测：
-
-- `VibeSportsTests/SwiftDataSettingsRepositoryTests.swift`
-
-> 注意：曾做过一次 settings store 的重建/版本隔离（避免字段变更导致启动失败），实现见 `VibeSports/Views/VibeSportsApp.swift`。
-
-## 8. 构建与测试
-
-- Build：`xcodebuild -project VibeSports.xcodeproj -scheme VibeSports -destination 'platform=macOS' build`
-- Test：`xcodebuild -project VibeSports.xcodeproj -scheme VibeSports -destination 'platform=macOS' test`
+- 正常跑步时，角色动作节奏与真人节奏一致，不出现明显“过快飞奔”；  
+- 停止跑步后，角色与场景在可接受时间内回到 idle；  
+- Debug 调参可即时生效，支持现场校准；  
+- 会话开始/结束行为稳定，结束后不残留运行态资源。  
