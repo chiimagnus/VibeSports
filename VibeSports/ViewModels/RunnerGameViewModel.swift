@@ -36,6 +36,8 @@ final class RunnerGameViewModel: ObservableObject {
         self.metrics = RunningMetricsSnapshot(
             poseDetected: false,
             movementQualityPercent: 0,
+            cadenceStepsPerSecond: 0,
+            cadenceStepsPerMinute: 0,
             speedMetersPerSecond: 0,
             speedKilometersPerHour: 0,
             steps: 0,
@@ -88,6 +90,8 @@ final class RunnerGameViewModel: ObservableObject {
         metrics = RunningMetricsSnapshot(
             poseDetected: false,
             movementQualityPercent: 0,
+            cadenceStepsPerSecond: 0,
+            cadenceStepsPerMinute: 0,
             speedMetersPerSecond: 0,
             speedKilometersPerHour: 0,
             steps: 0,
