@@ -58,6 +58,28 @@ final class RunningMetricsTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(metrics.stepDetector.stepCount, 2)
     }
 
+    func test_stepDetectorReturnsEventWhenStepCounted() {
+        var detector = RunningStepDetector()
+        detector.configuration.minStepInterval = 0.01
+        detector.configuration.minQualityToCountStep = 0
+
+        let base = Date(timeIntervalSince1970: 0)
+        _ = detector.ingest(
+            pose: Self.pose(leftWrist: .init(x: 0.4, y: 0.6), rightWrist: .init(x: 0.6, y: 0.4)),
+            movementQuality: 1,
+            now: base
+        )
+
+        let event = detector.ingest(
+            pose: Self.pose(leftWrist: .init(x: 0.4, y: 0.4), rightWrist: .init(x: 0.6, y: 0.6)),
+            movementQuality: 1,
+            now: base.addingTimeInterval(0.05)
+        )
+
+        XCTAssertNotNil(event)
+        XCTAssertNotNil(event?.intervalSincePreviousStep)
+    }
+
     func test_closeUpModeUsesShoulderDistance() {
         var metrics = RunningMetrics()
         metrics.configuration.closeUpShoulderDistanceThreshold = 0.2
