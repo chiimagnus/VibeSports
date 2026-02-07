@@ -29,7 +29,7 @@
 
 ### P1（最高优先级）：建立 cadence 模型 + 替换速度来源
 
-#### Task 1：新增 `CadenceModel`（纯模型）+ 单测
+#### ✅Task 1：新增 `CadenceModel`（纯模型）+ 单测
 
 **Files:**
 - Create: `VibeSports/Models/Running/CadenceModel.swift`
@@ -60,7 +60,7 @@ Run: `xcodebuild -project VibeSports.xcodeproj -scheme VibeSports -destination '
 
 ---
 
-#### Task 2：让 `RunningStepDetector` 把 “step 事件” 显式返回给上层
+#### ✅Task 2：让 `RunningStepDetector` 把 “step 事件” 显式返回给上层
 
 **Files:**
 - Modify: `VibeSports/Models/Running/RunningStepDetector.swift`
@@ -79,7 +79,7 @@ Run: `xcodebuild -project VibeSports.xcodeproj -scheme VibeSports -destination '
 
 ---
 
-#### Task 3：`RunningMetrics` 改为 cadence 驱动（替换 `RunningSpeedModel`）
+#### ✅Task 3：`RunningMetrics` 改为 cadence 驱动（替换 `RunningSpeedModel`）
 
 **Files:**
 - Modify: `VibeSports/Models/Running/RunningMetrics.swift`
