@@ -5,7 +5,7 @@ import SceneKit
 @MainActor
 protocol RunnerSceneRendering: AnyObject {
     func attach(to view: SCNView)
-    func setSpeedMetersPerSecond(_ speed: Double)
+    func setMotion(_ motion: RunnerMotion)
     func reset()
 }
 
@@ -36,8 +36,15 @@ final class RunnerSceneRenderer: ObservableObject {
             var baseX: Double
         }
 
+        struct Cadence: Sendable, Equatable {
+            var strideLengthMetersPerStep: Double
+            var stepsPerLoop: Double
+            var smoothingAlpha: Double
+        }
+
         var runner: Runner
         var camera: Camera
+        var cadence: Cadence
         var blender: RunnerAnimationBlender.Configuration
         var speedSmoothingAlpha: Double
 
@@ -61,6 +68,11 @@ final class RunnerSceneRenderer: ObservableObject {
                 swaySpeedToAmplitudeGain: 0.015,
                 swayFrequency: 3.5,
                 baseX: 0
+            ),
+            cadence: Cadence(
+                strideLengthMetersPerStep: 1.0,
+                stepsPerLoop: 2.0,
+                smoothingAlpha: 0.3
             ),
             blender: RunnerAnimationBlender.Configuration(),
             speedSmoothingAlpha: 0.20
@@ -98,8 +110,8 @@ final class RunnerSceneRenderer: ObservableObject {
         view.isPlaying = true
     }
 
-    func setSpeedMetersPerSecond(_ speed: Double) {
-        animator.setSpeedMetersPerSecond(speed)
+    func setMotion(_ motion: RunnerMotion) {
+        animator.setMotion(motion)
     }
 
     func reset() {
@@ -119,11 +131,11 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
 
     private let logger = Logger(subsystem: "com.chiimagnus.VibeSports", category: "RunnerSceneAnimator")
 
-    private let lock = OSAllocatedUnfairLock(initialState: SpeedState())
+    private let lock = OSAllocatedUnfairLock(initialState: MotionState())
     private let tuningLock = OSAllocatedUnfairLock(initialState: TuningState())
 
-    private struct SpeedState {
-        var speedMetersPerSecond: Double = 0
+    private struct MotionState {
+        var motion: RunnerMotion = .zero
     }
 
     private struct TuningState {
@@ -146,6 +158,7 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
     private var slowRunPlayer: SCNAnimationPlayer?
     private var fastRunPlayer: SCNAnimationPlayer?
 
+    private var displayedCadenceStepsPerSecond: Double = 0
     private var displayedSpeedMetersPerSecond: Double = 0
     private var travelZ: Double = 0
     private var lastAppliedTuning: RunnerSceneRenderer.Tuning?
@@ -188,7 +201,8 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
 
     func reset() {
         lastTime = nil
-        lock.withLock { $0.speedMetersPerSecond = 0 }
+        lock.withLock { $0.motion = .zero }
+        displayedCadenceStepsPerSecond = 0
         displayedSpeedMetersPerSecond = 0
         travelZ = 0
         lastAppliedTuning = nil
@@ -219,9 +233,13 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
         }
     }
 
-    func setSpeedMetersPerSecond(_ speed: Double) {
-        lock.withLock { state in
-            state.speedMetersPerSecond = max(0, speed)
+    func setMotion(_ motion: RunnerMotion) {
+        lock.withLock {
+            $0.motion = RunnerMotion(
+                speedMetersPerSecond: max(0, motion.speedMetersPerSecond),
+                cadenceStepsPerSecond: max(0, motion.cadenceStepsPerSecond),
+                cadenceStepsPerMinute: max(0, motion.cadenceStepsPerMinute)
+            )
         }
     }
 
@@ -236,21 +254,29 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
         }
         lastTime = time
 
-        let speed = lock.withLock { $0.speedMetersPerSecond }
-        displayedSpeedMetersPerSecond += (speed - displayedSpeedMetersPerSecond) * tuning.speedSmoothingAlpha
+        let motion = lock.withLock { $0.motion }
+        let cadenceSmoothingAlpha = min(max(tuning.cadence.smoothingAlpha, 0), 1)
+        let speedSmoothingAlpha = min(max(tuning.speedSmoothingAlpha, 0), 1)
+        displayedCadenceStepsPerSecond += (motion.cadenceStepsPerSecond - displayedCadenceStepsPerSecond) * cadenceSmoothingAlpha
+
+        let targetSpeedMetersPerSecond = displayedCadenceStepsPerSecond * max(0, tuning.cadence.strideLengthMetersPerStep)
+        displayedSpeedMetersPerSecond += (targetSpeedMetersPerSecond - displayedSpeedMetersPerSecond) * speedSmoothingAlpha
 
         if lastAppliedTuning != tuning {
             applyTuning(tuning)
             lastAppliedTuning = tuning
         }
 
-        updateRunnerAnimation(speedMetersPerSecond: displayedSpeedMetersPerSecond)
+        updateRunnerAnimation(
+            speedMetersPerSecond: displayedSpeedMetersPerSecond,
+            cadenceStepsPerSecond: displayedCadenceStepsPerSecond
+        )
 
-        travelZ += speed * dt
+        travelZ += displayedSpeedMetersPerSecond * dt
 
         let baseY = tuning.camera.heightY
-        let bobAmplitude = min(tuning.camera.bobMaxAmplitude, speed * tuning.camera.bobSpeedToAmplitudeGain)
-        let swayAmplitude = min(tuning.camera.swayMaxAmplitude, speed * tuning.camera.swaySpeedToAmplitudeGain)
+        let bobAmplitude = min(tuning.camera.bobMaxAmplitude, displayedSpeedMetersPerSecond * tuning.camera.bobSpeedToAmplitudeGain)
+        let swayAmplitude = min(tuning.camera.swayMaxAmplitude, displayedSpeedMetersPerSecond * tuning.camera.swaySpeedToAmplitudeGain)
         let bob = sin(time * tuning.camera.bobFrequency) * bobAmplitude
         let sway = cos(time * tuning.camera.swayFrequency) * swayAmplitude
 
@@ -447,7 +473,10 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
         fastRunPlayer.blendFactor = 0
     }
 
-    private func updateRunnerAnimation(speedMetersPerSecond: Double) {
+    private func updateRunnerAnimation(
+        speedMetersPerSecond: Double,
+        cadenceStepsPerSecond: Double
+    ) {
         guard let idlePlayer, let slowRunPlayer, let fastRunPlayer else { return }
 
         let tuning = tuningLock.withLock { $0.tuning }
@@ -458,8 +487,18 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
         slowRunPlayer.blendFactor = blend.slowRunWeight
         fastRunPlayer.blendFactor = blend.fastRunWeight
 
-        slowRunPlayer.speed = blend.playbackRate
-        fastRunPlayer.speed = blend.playbackRate
+        let stepsPerLoop = max(0.1, tuning.cadence.stepsPerLoop)
+        let cadenceRate = cadenceStepsPerSecond / stepsPerLoop
+
+        func rate(for player: SCNAnimationPlayer) -> Double {
+            guard cadenceRate > 0 else { return 1 }
+            let duration = max(0.0001, player.animation.duration)
+            let raw = cadenceRate * duration
+            return min(tuning.blender.maxPlaybackRate, max(tuning.blender.minPlaybackRate, raw))
+        }
+
+        slowRunPlayer.speed = rate(for: slowRunPlayer)
+        fastRunPlayer.speed = rate(for: fastRunPlayer)
     }
 
     private func runnerPosition(travelZ: Double) -> SCNVector3 {

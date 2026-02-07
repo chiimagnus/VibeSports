@@ -11,6 +11,14 @@ struct RunningMetricsSnapshot: Sendable, Equatable {
     var steps: Int
     var isCloseUpMode: Bool
     var shoulderDistance: Double?
+
+    var motion: RunnerMotion {
+        RunnerMotion(
+            speedMetersPerSecond: speedMetersPerSecond,
+            cadenceStepsPerSecond: cadenceStepsPerSecond,
+            cadenceStepsPerMinute: cadenceStepsPerMinute
+        )
+    }
 }
 
 struct RunningMetrics: Sendable, Equatable {

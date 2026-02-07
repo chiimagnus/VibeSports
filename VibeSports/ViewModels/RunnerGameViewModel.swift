@@ -150,6 +150,6 @@ final class RunnerGameViewModel: ObservableObject {
             now: clock.now
         )
         metrics = snapshot
-        sceneRenderer.setSpeedMetersPerSecond(snapshot.speedMetersPerSecond)
+        sceneRenderer.setMotion(snapshot.motion)
     }
 }

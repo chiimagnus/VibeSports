@@ -47,7 +47,7 @@ RunnerGameView 的核心布局：
 - `mode`: `.idle` / `.running`
 - 摄像头会话启停：`startTapped()` / `stopTapped()`
 - Combine 订阅 `CameraSession.posePublisher` 获取 pose 并更新 `metrics`
-- 将 `metrics.speedMetersPerSecond` 转成 3D 场景速度：`sceneRenderer.setSpeedMetersPerSecond(_:)`
+- 将 `metrics.motion` 送入渲染层：`sceneRenderer.setMotion(_:)`
 
 相关文件：
 
@@ -63,8 +63,8 @@ RunnerGameView 的核心布局：
 3. `PoseDetector` 使用 `VNDetectHumanBodyPoseRequest` 生成 `Pose`
 4. `RunnerGameViewModel` 接收 `Pose?`：
    - 更新 `latestPose`
-   - 计算 `RunningMetricsSnapshot`（质量、速度、步数、close-up 模式等）
-   - 推进 `RunnerSceneRenderer`（以速度驱动相机前进/抖动）
+   - 计算 `RunningMetricsSnapshot`（质量、cadence、速度、步数、close-up 模式等）
+   - 推进 `RunnerSceneRenderer`（cadence→speed 后驱动相机前进/抖动）
 
 ## 4. 姿态（Vision）与调试骨骼
 
@@ -99,9 +99,9 @@ RunnerGameView 的核心布局：
 `RunnerSceneRenderer` 负责构建并驱动 SceneKit 场景：
 
 - 使用固定数量 terrain segment（`TerrainSegmentPool`）循环复用，避免节点无限增长
-- 相机位移由 `speedMetersPerSecond` 推进，叠加轻微 bob/sway 模拟奔跑
+- 相机位移由 cadence 映射出的 speed 推进，叠加轻微 bob/sway 模拟奔跑
 - 3D runner 角色来自 `VibeSports/Resources/Runner.usdz`，并在 `Skeleton` 节点上同时播放三段动画（loop）
-- 动画权重按速度实时计算（Idle↔SlowRun↔FastRun 连续混合），并同步调整步频（playback rate）
+- 动画权重按速度实时计算（Idle↔SlowRun↔FastRun 连续混合），播放速率按 cadence 实时同步
 - 即使 speed=0，也保持相机朝向正确（避免“黑屏/看不到场景”）
 
 文件：
@@ -123,11 +123,11 @@ RunnerGameView 的核心布局：
 - `Debug → Mirror Camera`（⌘⇧M）
 - `Debug → Pose Stabilization`（⌘⇧S）
 - `Debug → Runner Animations…`（列出 `Runner.usdz` 内的动画 keys，支持 Play/Solo/Blend/Rate）
-- `Debug → Runner Tuning…`（实时调 runner/camera/blend 参数，用于校准大小/朝向/镜头距离等）
+- `Debug → Runner Tuning…`（实时调 runner/camera/cadence/blend 参数，用于校准大小/镜头距离/步频同步观感）
 
 这些开关通过 `FocusedValues` 绑定到当前窗口的 `RunnerGameView`（`focusedSceneValue`）。
 
-更多关于 `Runner.usdz` 的构建/验证与参数含义：见 `.github/plans/1.md`。
+更多关于 cadence 动作同步实现：见 `.github/plans/2026-02-06-cadence-motion-sync-implementation-plan.md`。
 
 ## 7. Settings（SwiftData 持久化）
 
