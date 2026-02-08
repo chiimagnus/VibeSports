@@ -28,9 +28,9 @@
 
 ## Plan A（主方案，采用方案 B 架构）
 
-### P1（最高优先级）：输入与控制模型先行（纯模型优先）
+### ✅P1（最高优先级）：输入与控制模型先行（纯模型优先）
 
-### Task 1：新增“头部转向信号”模型（鼻子相对肩中心）
+### ✅Task 1：新增“头部转向信号”模型（鼻子相对肩中心）
 
 **Files:**
 - Create: `VibeSports/Models/Pose/HeadSteeringSignal.swift`
@@ -56,7 +56,7 @@ Expected: PASS
 
 ---
 
-### Task 2：扩展 Pose 关节以支持头部输入（至少 nose）
+### ✅Task 2：扩展 Pose 关节以支持头部输入（至少 nose）
 
 **Files:**
 - Modify: `VibeSports/Models/Pose/Pose.swift`
@@ -80,7 +80,7 @@ Expected: PASS
 
 ---
 
-### Task 3：新增键盘调试输入状态机（WASD）
+### ✅Task 3：新增键盘调试输入状态机（WASD）
 
 **Files:**
 - Create: `VibeSports/Models/Input/KeyboardDebugInputState.swift`
@@ -103,7 +103,7 @@ Expected: PASS
 
 ---
 
-### Task 4：新增输入融合器（camera / keyboard / mixed）
+### ✅Task 4：新增输入融合器（camera / keyboard / mixed）
 
 **Files:**
 - Create: `VibeSports/Models/Input/RunnerControlInput.swift`
@@ -127,7 +127,7 @@ Expected: PASS
 
 ---
 
-### P1 分组回归
+### ✅P1 分组回归
 
 Run: `xcodebuild -project VibeSports.xcodeproj -scheme VibeSports -destination 'platform=macOS' test -only-testing:VibeSportsTests`
 
@@ -135,9 +135,9 @@ Expected: P1 新增测试全部通过。
 
 ---
 
-### P2：第三人称导航状态（heading + 2D 位移）与渲染接线
+### ✅P2：第三人称导航状态（heading + 2D 位移）与渲染接线
 
-### Task 5：引入导航状态与积分器（纯模型）
+### ✅Task 5：引入导航状态与积分器（纯模型）
 
 **Files:**
 - Create: `VibeSports/Models/Runner/RunnerNavigationState.swift`
@@ -163,7 +163,7 @@ Expected: PASS
 
 ---
 
-### Task 6：扩展 RunnerMotion 为“控制 + 导航”载体
+### ✅Task 6：扩展 RunnerMotion 为“控制 + 导航”载体
 
 **Files:**
 - Modify: `VibeSports/Models/Runner/RunnerMotion.swift`
@@ -186,7 +186,7 @@ Expected: PASS
 
 ---
 
-### Task 7：ViewModel 接入输入融合链路
+### ✅Task 7：ViewModel 接入输入融合链路
 
 **Files:**
 - Modify: `VibeSports/ViewModels/RunnerGameViewModel.swift`
@@ -209,7 +209,7 @@ Expected: BUILD SUCCEEDED
 
 ---
 
-### P2 分组回归
+### ✅P2 分组回归
 
 Run: `xcodebuild -project VibeSports.xcodeproj -scheme VibeSports -destination 'platform=macOS' test`
 
