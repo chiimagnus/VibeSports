@@ -32,6 +32,8 @@ struct PoseOverlayView: View {
 
 private enum PoseOverlayGeometry {
     static let edges: [(PoseJointName, PoseJointName)] = [
+        (.nose, .leftShoulder),
+        (.nose, .rightShoulder),
         (.leftShoulder, .rightShoulder),
         (.leftShoulder, .leftElbow),
         (.leftElbow, .leftWrist),
@@ -60,4 +62,3 @@ private enum PoseOverlayGeometry {
         return result
     }
 }
-
