@@ -22,6 +22,16 @@ final class RunnerControlComposerTests: XCTestCase {
         XCTAssertEqual(output, RunnerControlInput(turnInput: -1, forwardInput: -1))
     }
 
+    func test_keyboardModeWorksWhenCameraInputMissing() {
+        let composer = RunnerControlComposer(mode: .keyboard)
+        let output = composer.compose(
+            cameraInput: nil,
+            keyboardInput: RunnerControlInput(turnInput: 0.3, forwardInput: 1)
+        )
+
+        XCTAssertEqual(output, RunnerControlInput(turnInput: 0.3, forwardInput: 1))
+    }
+
     func test_mixedModePrefersKeyboardWhenKeyboardHasInput() {
         let composer = RunnerControlComposer(mode: .mixed)
         let output = composer.compose(

@@ -256,7 +256,10 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
             $0.motion = RunnerMotion(
                 speedMetersPerSecond: max(0, motion.speedMetersPerSecond),
                 cadenceStepsPerSecond: max(0, motion.cadenceStepsPerSecond),
-                cadenceStepsPerMinute: max(0, motion.cadenceStepsPerMinute)
+                cadenceStepsPerMinute: max(0, motion.cadenceStepsPerMinute),
+                forwardInput: min(1, max(-1, motion.forwardInput)),
+                turnInput: min(1, max(-1, motion.turnInput)),
+                headingYaw: motion.headingYaw
             )
         }
     }

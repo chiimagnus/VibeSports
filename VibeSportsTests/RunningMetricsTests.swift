@@ -27,6 +27,9 @@ final class RunningMetricsTests: XCTestCase {
 
         XCTAssertGreaterThan(latestSnapshot?.cadenceStepsPerSecond ?? 0, 0)
         XCTAssertGreaterThan(latestSnapshot?.speedMetersPerSecond ?? 0, 0)
+        XCTAssertEqual(latestSnapshot?.motion.forwardInput ?? 1, 0, accuracy: 0.0001)
+        XCTAssertEqual(latestSnapshot?.motion.turnInput ?? 1, 0, accuracy: 0.0001)
+        XCTAssertEqual(latestSnapshot?.motion.headingYaw ?? 1, 0, accuracy: 0.0001)
     }
 
     func test_speedDecaysToZeroWhenNoPose() {

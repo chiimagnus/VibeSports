@@ -17,6 +17,17 @@ struct RunnerGameView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .ignoresSafeArea()
 
+            KeyboardInputCaptureView(
+                onKeyDown: { key in
+                    viewModel.handleKeyDown(key)
+                },
+                onKeyUp: { key in
+                    viewModel.handleKeyUp(key)
+                }
+            )
+            .frame(width: 1, height: 1)
+            .opacity(0.01)
+
             VStack {
                 headerBar
                 Spacer(minLength: 0)
@@ -74,6 +85,7 @@ struct RunnerGameView: View {
         )
         .onDisappear {
             debugTools.detach(sceneRenderer: viewModel.sceneRenderer)
+            viewModel.resetKeyboardInput()
             viewModel.stopIfNeeded()
         }
     }
