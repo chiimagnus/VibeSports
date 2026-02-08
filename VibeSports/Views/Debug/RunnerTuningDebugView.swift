@@ -29,108 +29,10 @@ struct RunnerTuningDebugView: View {
                     in: 0.001...0.05,
                     format: "%.4f"
                 )
-                slider(
-                    "Yaw (rad)",
-                    value: $debugTools.runnerTuning.runner.yawRadians,
-                    in: (-Double.pi)...Double.pi,
-                    format: "%.3f"
-                )
-                slider(
-                    "Ahead Z",
-                    value: $debugTools.runnerTuning.runner.aheadOffsetZ,
-                    in: 1...20,
-                    format: "%.2f"
-                )
-                slider(
-                    "Ground Y Adj",
-                    value: $debugTools.runnerTuning.runner.additionalGroundOffsetY,
-                    in: -1...1,
-                    format: "%.3f"
-                )
-                slider(
-                    "X",
-                    value: $debugTools.runnerTuning.runner.x,
-                    in: -3...3,
-                    format: "%.2f"
-                )
             } header: {
                 Text("Runner")
             } footer: {
-                Text("Scale 是模型缩放（影响身高/地面偏移）；Ahead Z 是 runner 相对“前进进度 travelZ”的前置距离；Ground Y Adj 是脚底贴地的微调；Yaw 用来校准面向方向。")
-                    .foregroundStyle(.secondary)
-            }
-
-            Section {
-                slider(
-                    "FOV (deg)",
-                    value: $debugTools.runnerTuning.camera.fieldOfViewDegrees,
-                    in: 20...110,
-                    format: "%.0f"
-                )
-                slider(
-                    "Height Y",
-                    value: $debugTools.runnerTuning.camera.heightY,
-                    in: 0.5...6,
-                    format: "%.2f"
-                )
-                slider(
-                    "Back Z",
-                    value: $debugTools.runnerTuning.camera.backOffsetZ,
-                    in: 1...20,
-                    format: "%.2f"
-                )
-                slider(
-                    "LookAt Y",
-                    value: $debugTools.runnerTuning.camera.lookAtHeightY,
-                    in: 0...4,
-                    format: "%.2f"
-                )
-                slider(
-                    "Base X",
-                    value: $debugTools.runnerTuning.camera.baseX,
-                    in: -2...2,
-                    format: "%.2f"
-                )
-                slider(
-                    "Bob Max",
-                    value: $debugTools.runnerTuning.camera.bobMaxAmplitude,
-                    in: 0...1.0,
-                    format: "%.3f"
-                )
-                slider(
-                    "Bob Gain",
-                    value: $debugTools.runnerTuning.camera.bobSpeedToAmplitudeGain,
-                    in: 0...0.2,
-                    format: "%.3f"
-                )
-                slider(
-                    "Bob Freq",
-                    value: $debugTools.runnerTuning.camera.bobFrequency,
-                    in: 0...12,
-                    format: "%.2f"
-                )
-                slider(
-                    "Sway Max",
-                    value: $debugTools.runnerTuning.camera.swayMaxAmplitude,
-                    in: 0...1.0,
-                    format: "%.3f"
-                )
-                slider(
-                    "Sway Gain",
-                    value: $debugTools.runnerTuning.camera.swaySpeedToAmplitudeGain,
-                    in: 0...0.2,
-                    format: "%.3f"
-                )
-                slider(
-                    "Sway Freq",
-                    value: $debugTools.runnerTuning.camera.swayFrequency,
-                    in: 0...12,
-                    format: "%.2f"
-                )
-            } header: {
-                Text("Camera")
-            } footer: {
-                Text("Height/Back/LookAt 决定第三人称相机位置与注视点；Bob/Sway 会随速度产生轻微镜头起伏/左右摆动：振幅 = min(Max, speed * Gain)。")
+                Text("Scale 是模型缩放（影响身高/地面偏移）。")
                     .foregroundStyle(.secondary)
             }
 
@@ -147,22 +49,10 @@ struct RunnerTuningDebugView: View {
                     in: 0.5...4.0,
                     format: "%.2f"
                 )
-                slider(
-                    "Cadence Smooth α",
-                    value: $debugTools.runnerTuning.cadence.smoothingAlpha,
-                    in: 0.0...1.0,
-                    format: "%.2f"
-                )
-                slider(
-                    "Cadence Timeout (s)",
-                    value: $debugTools.runnerTuning.cadence.timeoutToZero,
-                    in: 0.2...3.0,
-                    format: "%.2f"
-                )
             } header: {
                 Text("Cadence Motion")
             } footer: {
-                Text("Stride 用于 cadence→speed 映射（speed = cadence * stride）；Steps/Loop 用于 cadence→动画速率映射；Cadence Smooth α 越大，节奏响应越灵敏；Cadence Timeout 控制无 step 后回落到 idle 的延迟。")
+                Text("Stride 用于 cadence→speed 映射（speed = cadence * stride）；Steps/Loop 用于 cadence→动画速率映射。")
                     .foregroundStyle(.secondary)
             }
 

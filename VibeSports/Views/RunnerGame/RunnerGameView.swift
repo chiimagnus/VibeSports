@@ -30,14 +30,12 @@ struct RunnerGameView: View {
         .frame(minWidth: 900, minHeight: 600)
         .onAppear {
             debugTools.attach(sceneRenderer: viewModel.sceneRenderer)
-            syncCadenceConfiguration()
+            viewModel.updateStrideLengthMetersPerStep(debugTools.runnerTuning.cadence.strideLengthMetersPerStep)
+            viewModel.updateShowWorldAxes(viewModel.showWorldAxes)
+            viewModel.updateShowRunnerAxes(viewModel.showRunnerAxes)
         }
         .onChange(of: debugTools.runnerTuning.cadence) { cadence in
-            viewModel.updateCadenceMotionConfiguration(
-                strideLengthMetersPerStep: cadence.strideLengthMetersPerStep,
-                cadenceSmoothingAlpha: cadence.smoothingAlpha,
-                cadenceTimeoutToZero: cadence.timeoutToZero
-            )
+            viewModel.updateStrideLengthMetersPerStep(cadence.strideLengthMetersPerStep)
         }
         .focusedSceneValue(
             \.showPoseOverlay,
@@ -58,6 +56,20 @@ struct RunnerGameView: View {
             Binding(
                 get: { viewModel.poseStabilizationEnabled },
                 set: { viewModel.updatePoseStabilizationEnabled($0) }
+            )
+        )
+        .focusedSceneValue(
+            \.showWorldAxes,
+            Binding(
+                get: { viewModel.showWorldAxes },
+                set: { viewModel.updateShowWorldAxes($0) }
+            )
+        )
+        .focusedSceneValue(
+            \.showRunnerAxes,
+            Binding(
+                get: { viewModel.showRunnerAxes },
+                set: { viewModel.updateShowRunnerAxes($0) }
             )
         )
         .onDisappear {
@@ -158,16 +170,7 @@ struct RunnerGameView: View {
                         .strokeBorder(.white.opacity(0.1))
                 }
         }
-        .shadow(color: .black.opacity(0.25), radius: 22, y: 12)
-    }
-
-    private func syncCadenceConfiguration() {
-        let cadence = debugTools.runnerTuning.cadence
-        viewModel.updateCadenceMotionConfiguration(
-            strideLengthMetersPerStep: cadence.strideLengthMetersPerStep,
-            cadenceSmoothingAlpha: cadence.smoothingAlpha,
-            cadenceTimeoutToZero: cadence.timeoutToZero
-        )
+            .shadow(color: .black.opacity(0.25), radius: 22, y: 12)
     }
 }
 

@@ -32,9 +32,9 @@ VibeSports/Services/FeatureX/
 
 ## 入口与依赖注入
 
-- App 入口：`VibeSports/Views/App/VibeSportsApp.swift`
-- 根视图：`VibeSports/Views/App/ContentView.swift`
-- 依赖装配：`VibeSports/Services/Dependencies/AppDependencies.swift`（集中创建 Service，并注入到 ViewModel）
+- App 入口：`VibeSports/Views/VibeSportsApp.swift`
+- 根视图：`VibeSports/Views/RunnerGame/RunnerGameView.swift`
+- 依赖装配：`VibeSports/Services/AppDependencies.swift`（集中创建 Service，并注入到 ViewModel）
 
 保持依赖“自上而下”流动：View 创建/持有 ViewModel；ViewModel 只依赖协议（或最小必要类型）；Service 不反向依赖 UI 层。
 
@@ -45,10 +45,10 @@ VibeSports/Services/FeatureX/
 
 ## 常见修改点
 
-- 姿态检测：`VibeSports/Services/Pose/`
-- 摄像头采集：`VibeSports/Services/Camera/`
-- 3D 渲染：`VibeSports/Services/Renderer/` 与 `VibeSports/Views/Shared/Scene/`
-- 运动指标：`VibeSports/Models/Running/` 与 `VibeSports/ViewModels/RunnerGame/`
+- 姿态检测：`VibeSports/Services/PoseDetector.swift` 与 `VibeSports/Models/Pose/`
+- 摄像头采集：`VibeSports/Services/CameraSession.swift`
+- 3D 渲染：`VibeSports/Services/Renderer/` 与 `VibeSports/Views/RunnerGame/RunnerSceneView.swift`
+- 运动指标：`VibeSports/Models/Running/` 与 `VibeSports/ViewModels/RunnerGameViewModel.swift`
 
 ## 代码风格与命名规范
 

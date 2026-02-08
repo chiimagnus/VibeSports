@@ -14,67 +14,25 @@ final class RunnerSceneRenderer: ObservableObject {
     struct Tuning: Sendable, Equatable {
         struct Runner: Sendable, Equatable {
             var scale: Double
-            var yawRadians: Double
-            var aheadOffsetZ: Double
-            var additionalGroundOffsetY: Double
-            var x: Double
-        }
-
-        struct Camera: Sendable, Equatable {
-            var fieldOfViewDegrees: Double
-            var heightY: Double
-            var backOffsetZ: Double
-            var lookAtHeightY: Double
-
-            var bobMaxAmplitude: Double
-            var bobSpeedToAmplitudeGain: Double
-            var bobFrequency: Double
-
-            var swayMaxAmplitude: Double
-            var swaySpeedToAmplitudeGain: Double
-            var swayFrequency: Double
-            var baseX: Double
         }
 
         struct Cadence: Sendable, Equatable {
             var strideLengthMetersPerStep: Double
             var stepsPerLoop: Double
-            var smoothingAlpha: Double
-            var timeoutToZero: Double
         }
 
         var runner: Runner
-        var camera: Camera
         var cadence: Cadence
         var blender: RunnerAnimationBlender.Configuration
         var speedSmoothingAlpha: Double
 
         static let `default` = Tuning(
             runner: Runner(
-                scale: 0.01,
-                yawRadians: 0,
-                aheadOffsetZ: 6.0,
-                additionalGroundOffsetY: 0,
-                x: 0
-            ),
-            camera: Camera(
-                fieldOfViewDegrees: 70,
-                heightY: 2.2,
-                backOffsetZ: 5.0,
-                lookAtHeightY: 1.4,
-                bobMaxAmplitude: 0.12,
-                bobSpeedToAmplitudeGain: 0.02,
-                bobFrequency: 6.0,
-                swayMaxAmplitude: 0.08,
-                swaySpeedToAmplitudeGain: 0.015,
-                swayFrequency: 3.5,
-                baseX: 0
+                scale: 0.01
             ),
             cadence: Cadence(
                 strideLengthMetersPerStep: 1.0,
-                stepsPerLoop: 2.0,
-                smoothingAlpha: 0.3,
-                timeoutToZero: 1.0
+                stepsPerLoop: 2.0
             ),
             blender: RunnerAnimationBlender.Configuration(),
             speedSmoothingAlpha: 0.20
@@ -106,6 +64,14 @@ final class RunnerSceneRenderer: ObservableObject {
         set { animator.setTuning(newValue) }
     }
 
+    func setShowWorldAxes(_ isShown: Bool) {
+        animator.setShowWorldAxes(isShown)
+    }
+
+    func setShowRunnerAxes(_ isShown: Bool) {
+        animator.setShowRunnerAxes(isShown)
+    }
+
     func attach(to view: SCNView) {
         view.scene = scene
         view.delegate = animator
@@ -135,6 +101,7 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
 
     private let lock = OSAllocatedUnfairLock(initialState: MotionState())
     private let tuningLock = OSAllocatedUnfairLock(initialState: TuningState())
+    private let debugAxesLock = OSAllocatedUnfairLock(initialState: DebugAxesState())
 
     private struct MotionState {
         var motion: RunnerMotion = .zero
@@ -142,6 +109,11 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
 
     private struct TuningState {
         var tuning: RunnerSceneRenderer.Tuning = .default
+    }
+
+    private struct DebugAxesState: Equatable {
+        var showWorldAxes: Bool = false
+        var showRunnerAxes: Bool = false
     }
 
     private var lastTime: TimeInterval?
@@ -154,6 +126,29 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
     private var runnerNode: SCNNode?
     private var runnerSkinnedNode: SCNNode?
     private var runnerSkeletonNode: SCNNode?
+
+    private var worldAxesNode: SCNNode?
+    private var runnerAxesNode: SCNNode?
+    private var lastAppliedDebugAxes: DebugAxesState?
+
+    private enum Defaults {
+        static let runnerAheadOffsetZ: Double = 6.0
+        static let cameraFieldOfViewDegrees: Double = 70
+        static let cameraHeightY: Double = 2.2
+        static let cameraBackOffsetZ: Double = 5.0
+        static let cameraLookAtHeightY: Double = 1.4
+
+        static let cameraBobMaxAmplitude: Double = 0.12
+        static let cameraBobSpeedToAmplitudeGain: Double = 0.02
+        static let cameraBobFrequency: Double = 6.0
+
+        static let cameraSwayMaxAmplitude: Double = 0.08
+        static let cameraSwaySpeedToAmplitudeGain: Double = 0.015
+        static let cameraSwayFrequency: Double = 3.5
+        static let cameraBaseX: Double = 0
+
+        static let cadenceSmoothingAlpha: Double = 0.3
+    }
 
     private var animationBlender = RunnerAnimationBlender()
     private var idlePlayer: SCNAnimationPlayer?
@@ -181,16 +176,34 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
         let tuning = tuningLock.withLock { $0.tuning }
 
         cameraNode.camera = camera
-        camera.fieldOfView = CGFloat(tuning.camera.fieldOfViewDegrees)
+        camera.fieldOfView = CGFloat(Defaults.cameraFieldOfViewDegrees)
         travelZ = 0
         cameraNode.position = SCNVector3(
             0,
-            CGFloat(tuning.camera.heightY),
-            CGFloat(initialCameraZ(tuning: tuning))
+            CGFloat(Defaults.cameraHeightY),
+            CGFloat(initialCameraZ())
         )
         scene.rootNode.addChildNode(cameraNode)
 
+        let worldAxes = SceneDebugAxes.makeAxesNode(length: 1.8, thickness: 0.02)
+        worldAxes.name = "debugWorldAxes"
+        worldAxes.position = SCNVector3(0, 0.001, 0)
+        scene.rootNode.addChildNode(worldAxes)
+        worldAxesNode = worldAxes
+
         installRunner(into: scene)
+
+        if let runnerNode {
+            let runnerAxes = SceneDebugAxes.makeAxesNode(length: 1.2, thickness: 0.02)
+            runnerAxes.name = "debugRunnerAxes"
+            runnerAxesNode = runnerAxes
+            runnerAxes.position = SCNVector3(0, 0, 0)
+            runnerAxes.isHidden = true
+            runnerNode.addChildNode(runnerAxes)
+            applyRunnerAxesScale(tuning: tuning)
+        }
+
+        applyDebugAxesVisibilityIfNeeded(tuning: tuning, force: true)
 
         segmentNodes = pool.segments.map { segment in
             makeSegmentNode(startZ: segment.startZ)
@@ -211,17 +224,20 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
 
         pool = TerrainSegmentPool(activeSegments: configuration.activeSegments, segmentLength: configuration.segmentLength)
 
-        let tuning = tuningLock.withLock { $0.tuning }
-        camera.fieldOfView = CGFloat(tuning.camera.fieldOfViewDegrees)
+        camera.fieldOfView = CGFloat(Defaults.cameraFieldOfViewDegrees)
         cameraNode.position = SCNVector3(
             0,
-            CGFloat(tuning.camera.heightY),
-            CGFloat(initialCameraZ(tuning: tuning))
+            CGFloat(Defaults.cameraHeightY),
+            CGFloat(initialCameraZ())
         )
 
         if let runnerNode {
             runnerNode.position = runnerPosition(travelZ: travelZ)
         }
+
+        let tuning = tuningLock.withLock { $0.tuning }
+        applyRunnerAxesScale(tuning: tuning)
+        applyDebugAxesVisibilityIfNeeded(tuning: tuning, force: true)
 
         idlePlayer?.blendFactor = 1
         slowRunPlayer?.blendFactor = 0
@@ -257,9 +273,8 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
         lastTime = time
 
         let motion = lock.withLock { $0.motion }
-        let cadenceSmoothingAlpha = min(max(tuning.cadence.smoothingAlpha, 0), 1)
         let speedSmoothingAlpha = min(max(tuning.speedSmoothingAlpha, 0), 1)
-        displayedCadenceStepsPerSecond += (motion.cadenceStepsPerSecond - displayedCadenceStepsPerSecond) * cadenceSmoothingAlpha
+        displayedCadenceStepsPerSecond += (motion.cadenceStepsPerSecond - displayedCadenceStepsPerSecond) * Defaults.cadenceSmoothingAlpha
 
         let targetSpeedMetersPerSecond = displayedCadenceStepsPerSecond * max(0, tuning.cadence.strideLengthMetersPerStep)
         displayedSpeedMetersPerSecond += (targetSpeedMetersPerSecond - displayedSpeedMetersPerSecond) * speedSmoothingAlpha
@@ -269,6 +284,8 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
             lastAppliedTuning = tuning
         }
 
+        applyDebugAxesVisibilityIfNeeded(tuning: tuning, force: false)
+
         updateRunnerAnimation(
             speedMetersPerSecond: displayedSpeedMetersPerSecond,
             cadenceStepsPerSecond: displayedCadenceStepsPerSecond
@@ -276,28 +293,28 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
 
         travelZ += displayedSpeedMetersPerSecond * dt
 
-        let baseY = tuning.camera.heightY
-        let bobAmplitude = min(tuning.camera.bobMaxAmplitude, displayedSpeedMetersPerSecond * tuning.camera.bobSpeedToAmplitudeGain)
-        let swayAmplitude = min(tuning.camera.swayMaxAmplitude, displayedSpeedMetersPerSecond * tuning.camera.swaySpeedToAmplitudeGain)
-        let bob = sin(time * tuning.camera.bobFrequency) * bobAmplitude
-        let sway = cos(time * tuning.camera.swayFrequency) * swayAmplitude
+        let baseY = Defaults.cameraHeightY
+        let bobAmplitude = min(Defaults.cameraBobMaxAmplitude, displayedSpeedMetersPerSecond * Defaults.cameraBobSpeedToAmplitudeGain)
+        let swayAmplitude = min(Defaults.cameraSwayMaxAmplitude, displayedSpeedMetersPerSecond * Defaults.cameraSwaySpeedToAmplitudeGain)
+        let bob = sin(time * Defaults.cameraBobFrequency) * bobAmplitude
+        let sway = cos(time * Defaults.cameraSwayFrequency) * swayAmplitude
 
         if let runnerNode {
             runnerNode.position = runnerPosition(travelZ: travelZ)
 
-            cameraNode.position.x = CGFloat(tuning.camera.baseX + sway)
+            cameraNode.position.x = CGFloat(Defaults.cameraBaseX + sway)
             cameraNode.position.y = CGFloat(baseY + bob)
-            cameraNode.position.z = runnerNode.position.z - CGFloat(tuning.camera.backOffsetZ)
+            cameraNode.position.z = runnerNode.position.z - CGFloat(Defaults.cameraBackOffsetZ)
 
             let lookAt = SCNVector3(
                 runnerNode.position.x,
-                CGFloat(tuning.camera.lookAtHeightY),
+                CGFloat(Defaults.cameraLookAtHeightY),
                 runnerNode.position.z
             )
             cameraNode.look(at: lookAt)
         }
 
-        let progressZ = travelZ + tuning.runner.aheadOffsetZ
+        let progressZ = travelZ + Defaults.runnerAheadOffsetZ
         let recycled = pool.recycleIfNeeded(cameraZ: progressZ)
         for newStartZ in recycled {
             guard let node = segmentNodes.first else { continue }
@@ -414,7 +431,7 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
 
         let scale = tuning.runner.scale
         clonedRoot.scale = SCNVector3(CGFloat(scale), CGFloat(scale), CGFloat(scale))
-        clonedRoot.eulerAngles.y = CGFloat(tuning.runner.yawRadians)
+        clonedRoot.eulerAngles.y = 0
 
         runnerSkinnedNode = Self.findFirstSkinnedNode(in: clonedRoot)
         runnerSkeletonNode = clonedRoot.childNode(withName: "Skeleton", recursively: true)
@@ -430,7 +447,7 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
 
         if let runnerSkinnedNode {
             let minY = Double(runnerSkinnedNode.boundingBox.min.y)
-            let groundOffset = (-minY * scale) + tuning.runner.additionalGroundOffsetY
+            let groundOffset = (-minY * scale)
             clonedRoot.position.y = CGFloat(groundOffset)
         }
 
@@ -506,14 +523,14 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
     private func runnerPosition(travelZ: Double) -> SCNVector3 {
         let tuning = tuningLock.withLock { $0.tuning }
         return SCNVector3(
-            CGFloat(tuning.runner.x),
+            0,
             runnerNode?.position.y ?? 0,
-            CGFloat(travelZ + tuning.runner.aheadOffsetZ)
+            CGFloat(travelZ + Defaults.runnerAheadOffsetZ)
         )
     }
 
-    private func initialCameraZ(tuning: RunnerSceneRenderer.Tuning) -> Double {
-        (travelZ + tuning.runner.aheadOffsetZ) - tuning.camera.backOffsetZ
+    private func initialCameraZ() -> Double {
+        (travelZ + Defaults.runnerAheadOffsetZ) - Defaults.cameraBackOffsetZ
     }
 
     var tuning: RunnerSceneRenderer.Tuning {
@@ -524,23 +541,55 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
         tuningLock.withLock { $0.tuning = tuning }
     }
 
+    func setShowWorldAxes(_ isShown: Bool) {
+        debugAxesLock.withLock { $0.showWorldAxes = isShown }
+    }
+
+    func setShowRunnerAxes(_ isShown: Bool) {
+        debugAxesLock.withLock { $0.showRunnerAxes = isShown }
+    }
+
     private func applyTuning(_ tuning: RunnerSceneRenderer.Tuning) {
         guard let runnerNode else { return }
-
-        camera.fieldOfView = CGFloat(tuning.camera.fieldOfViewDegrees)
 
         runnerNode.scale = SCNVector3(
             CGFloat(tuning.runner.scale),
             CGFloat(tuning.runner.scale),
             CGFloat(tuning.runner.scale)
         )
-        runnerNode.eulerAngles.y = CGFloat(tuning.runner.yawRadians)
+        runnerNode.eulerAngles.y = 0
 
         if let runnerSkinnedNode {
             let minY = Double(runnerSkinnedNode.boundingBox.min.y)
-            let groundOffset = (-minY * tuning.runner.scale) + tuning.runner.additionalGroundOffsetY
+            let groundOffset = (-minY * tuning.runner.scale)
             runnerNode.position.y = CGFloat(groundOffset)
         }
+
+        applyRunnerAxesScale(tuning: tuning)
+    }
+
+    private func applyRunnerAxesScale(tuning: RunnerSceneRenderer.Tuning) {
+        guard let runnerAxesNode else { return }
+        let scale = max(0.0001, tuning.runner.scale)
+        let inv = 1.0 / scale
+        runnerAxesNode.scale = SCNVector3(CGFloat(inv), CGFloat(inv), CGFloat(inv))
+    }
+
+    private func applyDebugAxesVisibilityIfNeeded(
+        tuning: RunnerSceneRenderer.Tuning,
+        force: Bool
+    ) {
+        let state = debugAxesLock.withLock { $0 }
+        guard force || state != lastAppliedDebugAxes else { return }
+
+        worldAxesNode?.isHidden = !state.showWorldAxes
+        runnerAxesNode?.isHidden = !state.showRunnerAxes
+
+        if state.showRunnerAxes {
+            applyRunnerAxesScale(tuning: tuning)
+        }
+
+        lastAppliedDebugAxes = state
     }
 
     private static func findFirstSkinnedNode(in node: SCNNode) -> SCNNode? {
