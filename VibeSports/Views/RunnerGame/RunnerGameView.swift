@@ -42,42 +42,21 @@ struct RunnerGameView: View {
         .frame(minWidth: 900, minHeight: 600)
         .onAppear {
             debugTools.attach(sceneRenderer: viewModel.sceneRenderer)
-            let vm = viewModel
             runnerCommands.attach(
-                snapshot: makeRunnerCommandSnapshot(),
-                handlers: RunnerCommandCenter.Handlers(
-                    updateShowPoseOverlay: { [weak vm] in vm?.updateShowPoseOverlay($0) },
-                    updateMirrorCamera: { [weak vm] in vm?.updateMirrorCamera($0) },
-                    updatePoseStabilizationEnabled: { [weak vm] in vm?.updatePoseStabilizationEnabled($0) },
-                    updateShowWorldAxes: { [weak vm] in vm?.updateShowWorldAxes($0) },
-                    updateShowRunnerAxes: { [weak vm] in vm?.updateShowRunnerAxes($0) },
-                    updateControlMode: { [weak vm] in vm?.updateControlMode($0) }
-                )
+                snapshot: runnerCommandSnapshot,
+                handlers: makeRunnerCommandHandlers()
             )
             viewModel.updateStrideLengthMetersPerStep(debugTools.runnerTuning.cadence.strideLengthMetersPerStep)
             viewModel.updateShowWorldAxes(viewModel.showWorldAxes)
             viewModel.updateShowRunnerAxes(viewModel.showRunnerAxes)
         }
-        .onChange(of: debugTools.runnerTuning.cadence) { cadence in
-            viewModel.updateStrideLengthMetersPerStep(cadence.strideLengthMetersPerStep)
+        .onChange(of: debugTools.runnerTuning.cadence) { _, cadence in
+            viewModel.updateStrideLengthMetersPerStep(
+                cadence.strideLengthMetersPerStep
+            )
         }
-        .onChange(of: viewModel.showPoseOverlay) { _, _ in
-            syncRunnerCommands()
-        }
-        .onChange(of: viewModel.mirrorCamera) { _, _ in
-            syncRunnerCommands()
-        }
-        .onChange(of: viewModel.poseStabilizationEnabled) { _, _ in
-            syncRunnerCommands()
-        }
-        .onChange(of: viewModel.showWorldAxes) { _, _ in
-            syncRunnerCommands()
-        }
-        .onChange(of: viewModel.showRunnerAxes) { _, _ in
-            syncRunnerCommands()
-        }
-        .onChange(of: viewModel.controlMode) { _, _ in
-            syncRunnerCommands()
+        .onChange(of: runnerCommandSnapshot) { _, snapshot in
+            runnerCommands.apply(snapshot: snapshot)
         }
         .onDisappear {
             debugTools.detach(sceneRenderer: viewModel.sceneRenderer)
@@ -185,11 +164,7 @@ struct RunnerGameView: View {
             .shadow(color: .black.opacity(0.25), radius: 22, y: 12)
     }
 
-    private func syncRunnerCommands() {
-        runnerCommands.apply(snapshot: makeRunnerCommandSnapshot())
-    }
-
-    private func makeRunnerCommandSnapshot() -> RunnerCommandCenter.Snapshot {
+    private var runnerCommandSnapshot: RunnerCommandCenter.Snapshot {
         RunnerCommandCenter.Snapshot(
             showPoseOverlay: viewModel.showPoseOverlay,
             mirrorCamera: viewModel.mirrorCamera,
@@ -197,6 +172,18 @@ struct RunnerGameView: View {
             showWorldAxes: viewModel.showWorldAxes,
             showRunnerAxes: viewModel.showRunnerAxes,
             controlMode: viewModel.controlMode
+        )
+    }
+
+    private func makeRunnerCommandHandlers() -> RunnerCommandCenter.Handlers {
+        let vm = viewModel
+        return RunnerCommandCenter.Handlers(
+            updateShowPoseOverlay: { [weak vm] in vm?.updateShowPoseOverlay($0) },
+            updateMirrorCamera: { [weak vm] in vm?.updateMirrorCamera($0) },
+            updatePoseStabilizationEnabled: { [weak vm] in vm?.updatePoseStabilizationEnabled($0) },
+            updateShowWorldAxes: { [weak vm] in vm?.updateShowWorldAxes($0) },
+            updateShowRunnerAxes: { [weak vm] in vm?.updateShowRunnerAxes($0) },
+            updateControlMode: { [weak vm] in vm?.updateControlMode($0) }
         )
     }
 }

@@ -3,7 +3,7 @@ import Foundation
 
 @MainActor
 final class RunnerCommandCenter: ObservableObject {
-    struct Snapshot {
+    struct Snapshot: Equatable {
         var showPoseOverlay: Bool
         var mirrorCamera: Bool
         var poseStabilizationEnabled: Bool
