@@ -15,9 +15,10 @@ struct KeyboardInputCaptureView: NSViewRepresentable {
     func updateNSView(_ nsView: KeyboardCaptureNSView, context: Context) {
         nsView.onKeyDown = onKeyDown
         nsView.onKeyUp = onKeyUp
-        DispatchQueue.main.async {
-            nsView.window?.makeFirstResponder(nsView)
-        }
+    }
+
+    static func dismantleNSView(_ nsView: KeyboardCaptureNSView, coordinator: ()) {
+        nsView.teardownMonitors()
     }
 }
 
@@ -25,27 +26,72 @@ final class KeyboardCaptureNSView: NSView {
     var onKeyDown: ((KeyboardDebugInputState.Key) -> Void)?
     var onKeyUp: ((KeyboardDebugInputState.Key) -> Void)?
 
-    override var acceptsFirstResponder: Bool { true }
+    private weak var monitoredWindow: NSWindow?
+    private var keyDownMonitor: Any?
+    private var keyUpMonitor: Any?
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        window?.makeFirstResponder(self)
+        installMonitorsIfNeeded()
     }
 
-    override func keyDown(with event: NSEvent) {
-        guard let key = Self.key(from: event) else {
-            super.keyDown(with: event)
-            return
-        }
-        onKeyDown?(key)
+    override func removeFromSuperview() {
+        super.removeFromSuperview()
+        teardownMonitors()
     }
 
-    override func keyUp(with event: NSEvent) {
-        guard let key = Self.key(from: event) else {
-            super.keyUp(with: event)
-            return
+    func teardownMonitors() {
+        if let keyDownMonitor {
+            NSEvent.removeMonitor(keyDownMonitor)
+            self.keyDownMonitor = nil
         }
-        onKeyUp?(key)
+        if let keyUpMonitor {
+            NSEvent.removeMonitor(keyUpMonitor)
+            self.keyUpMonitor = nil
+        }
+        monitoredWindow = nil
+    }
+
+    private func installMonitorsIfNeeded() {
+        guard let window else { return }
+        if monitoredWindow === window { return }
+
+        teardownMonitors()
+        monitoredWindow = window
+
+        keyDownMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self else { return event }
+            guard self.shouldHandle(event: event) else { return event }
+            guard let key = Self.key(from: event) else { return event }
+            self.onKeyDown?(key)
+            return event
+        }
+
+        keyUpMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyUp) { [weak self] event in
+            guard let self else { return event }
+            guard self.shouldHandle(event: event) else { return event }
+            guard let key = Self.key(from: event) else { return event }
+            self.onKeyUp?(key)
+            return event
+        }
+    }
+
+    private func shouldHandle(event: NSEvent) -> Bool {
+        guard let monitoredWindow else { return false }
+        guard event.window === monitoredWindow, monitoredWindow.isKeyWindow else {
+            return false
+        }
+        if event.modifierFlags.contains(.command)
+            || event.modifierFlags.contains(.option)
+            || event.modifierFlags.contains(.control)
+            || event.modifierFlags.contains(.function) {
+            return false
+        }
+        if let firstResponder = monitoredWindow.firstResponder as? NSTextView,
+           firstResponder.isFieldEditor {
+            return false
+        }
+        return true
     }
 
     private static func key(from event: NSEvent) -> KeyboardDebugInputState.Key? {

@@ -8,6 +8,7 @@ struct VibeSportsApp: App {
     private let modelContainer: ModelContainer
     private let dependencies: AppDependencies
     @StateObject private var debugTools = DebugToolsStore()
+    @StateObject private var runnerCommands = RunnerCommandCenter()
 
     init() {
         do {
@@ -43,10 +44,11 @@ struct VibeSportsApp: App {
         WindowGroup {
             RunnerGameView(dependencies: dependencies)
                 .environmentObject(debugTools)
+                .environmentObject(runnerCommands)
         }
         .modelContainer(modelContainer)
         .commands {
-            DebugCommands()
+            DebugCommands(runnerCommands: runnerCommands)
         }
 
 #if DEBUG

@@ -1,89 +1,96 @@
 import SwiftUI
 
 struct DebugCommands: Commands {
-    @FocusedValue(\.showPoseOverlay) private var showPoseOverlay
-    @FocusedValue(\.mirrorCamera) private var mirrorCamera
-    @FocusedValue(\.poseStabilizationEnabled) private var poseStabilizationEnabled
-    @FocusedValue(\.showWorldAxes) private var showWorldAxes
-    @FocusedValue(\.showRunnerAxes) private var showRunnerAxes
-    @FocusedValue(\.controlMode) private var controlMode
+    @ObservedObject var runnerCommands: RunnerCommandCenter
 
 #if DEBUG
     @Environment(\.openWindow) private var openWindow
 #endif
 
+    private var poseOverlayBinding: Binding<Bool> {
+        Binding(
+            get: { runnerCommands.showPoseOverlay },
+            set: { runnerCommands.setShowPoseOverlay($0) }
+        )
+    }
+
+    private var mirrorCameraBinding: Binding<Bool> {
+        Binding(
+            get: { runnerCommands.mirrorCamera },
+            set: { runnerCommands.setMirrorCamera($0) }
+        )
+    }
+
+    private var poseStabilizationBinding: Binding<Bool> {
+        Binding(
+            get: { runnerCommands.poseStabilizationEnabled },
+            set: { runnerCommands.setPoseStabilizationEnabled($0) }
+        )
+    }
+
+    private var showWorldAxesBinding: Binding<Bool> {
+        Binding(
+            get: { runnerCommands.showWorldAxes },
+            set: { runnerCommands.setShowWorldAxes($0) }
+        )
+    }
+
+    private var showRunnerAxesBinding: Binding<Bool> {
+        Binding(
+            get: { runnerCommands.showRunnerAxes },
+            set: { runnerCommands.setShowRunnerAxes($0) }
+        )
+    }
+
+    private var controlModeValue: RunnerControlComposer.Mode {
+        runnerCommands.controlMode
+    }
+
     var body: some Commands {
         CommandMenu("Debug") {
-            if let showPoseOverlay {
-                Toggle("Pose Overlay", isOn: showPoseOverlay)
-                    .keyboardShortcut("p", modifiers: [.command, .shift])
-            } else {
-                Button("Pose Overlay") {}
-                    .disabled(true)
-                    .keyboardShortcut("p", modifiers: [.command, .shift])
-            }
+            Toggle("Pose Overlay", isOn: poseOverlayBinding)
+                .disabled(!runnerCommands.isRunnerAttached)
+                .keyboardShortcut("p", modifiers: [.command, .shift])
 
-            if let mirrorCamera {
-                Toggle("Mirror Camera", isOn: mirrorCamera)
-                    .keyboardShortcut("m", modifiers: [.command, .shift])
-            } else {
-                Button("Mirror Camera") {}
-                    .disabled(true)
-                    .keyboardShortcut("m", modifiers: [.command, .shift])
-            }
+            Toggle("Mirror Camera", isOn: mirrorCameraBinding)
+                .disabled(!runnerCommands.isRunnerAttached)
+                .keyboardShortcut("m", modifiers: [.command, .shift])
 
             Divider()
 
-            if let poseStabilizationEnabled {
-                Toggle("Pose Stabilization", isOn: poseStabilizationEnabled)
-                    .keyboardShortcut("s", modifiers: [.command, .shift])
-            } else {
-                Button("Pose Stabilization") {}
-                    .disabled(true)
-                    .keyboardShortcut("s", modifiers: [.command, .shift])
-            }
+            Toggle("Pose Stabilization", isOn: poseStabilizationBinding)
+                .disabled(!runnerCommands.isRunnerAttached)
+                .keyboardShortcut("s", modifiers: [.command, .shift])
 
 #if DEBUG
             Divider()
 
-            if let showWorldAxes {
-                Toggle("World Axes", isOn: showWorldAxes)
-            } else {
-                Button("World Axes") {}
-                    .disabled(true)
-            }
+            Toggle("World Axes", isOn: showWorldAxesBinding)
+                .disabled(!runnerCommands.isRunnerAttached)
 
-            if let showRunnerAxes {
-                Toggle("Runner Axes", isOn: showRunnerAxes)
-            } else {
-                Button("Runner Axes") {}
-                    .disabled(true)
-            }
+            Toggle("Runner Axes", isOn: showRunnerAxesBinding)
+                .disabled(!runnerCommands.isRunnerAttached)
 
-            if let controlMode {
-                Menu("Control Input") {
-                    Button {
-                        controlMode.wrappedValue = .camera
-                    } label: {
-                        Text(controlMode.wrappedValue == .camera ? "✓ Camera" : "Camera")
-                    }
-
-                    Button {
-                        controlMode.wrappedValue = .keyboard
-                    } label: {
-                        Text(controlMode.wrappedValue == .keyboard ? "✓ Keyboard" : "Keyboard")
-                    }
-
-                    Button {
-                        controlMode.wrappedValue = .mixed
-                    } label: {
-                        Text(controlMode.wrappedValue == .mixed ? "✓ Mixed" : "Mixed")
-                    }
+            Menu("Control Input") {
+                Button {
+                    runnerCommands.setControlMode(.camera)
+                } label: {
+                    Text(controlModeValue == .camera ? "✓ Camera" : "Camera")
                 }
-            } else {
-                Button("Control Input") {}
-                    .disabled(true)
+
+                Button {
+                    runnerCommands.setControlMode(.keyboard)
+                } label: {
+                    Text(controlModeValue == .keyboard ? "✓ Keyboard" : "Keyboard")
+                }
+
+                Button {
+                    runnerCommands.setControlMode(.mixed)
+                } label: {
+                    Text(controlModeValue == .mixed ? "✓ Mixed" : "Mixed")
+                }
             }
+            .disabled(!runnerCommands.isRunnerAttached)
             Divider()
 
             Button("Runner Animations…") {
