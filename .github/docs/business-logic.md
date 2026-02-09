@@ -4,7 +4,7 @@
 
 ## 产品概述
 
-VibeSports 是一款 macOS 原生「摄像头跑步游戏」原型：用户点击开始后，App 用摄像头 + Vision 做人体姿态估计，估计 step/cadence/speed，并用这些指标驱动 SceneKit 的无限跑道与 Runner 动画。当前阶段优先级是 **“动作同步感” > “真实速度精度”**。
+VibeSports 是一款 macOS 原生「摄像头跑步游戏」原型：用户点击开始后，App 用摄像头 + Vision 做人体姿态估计，估计 step/cadence/speed，并从头部左右摆动提取转向输入。渲染层基于 `heading + 2D position` 在第三人称森林场景中连续转弯与前进。当前阶段优先级是 **“动作同步感” > “真实速度精度”**。
 
 技术栈：macOS 14+ / Swift 6 / SwiftUI + Combine（状态与事件流）/ Vision（pose）/ AVFoundation（camera）/ SceneKit（渲染）/ SwiftData（设置持久化）。
 
@@ -32,11 +32,13 @@ VibeSports 是一款 macOS 原生「摄像头跑步游戏」原型：用户点�
 4. ViewModel 接收 pose：
    - （可选）做姿态稳定化（`VibeSports/Models/Pose/PoseStabilizer.swift`）
    - `RunningMetrics.ingest(...)` 计算 `stepCount / cadence / speed / movementQuality / closeUpMode`（`VibeSports/Models/Running/RunningMetrics.swift`）
-   - 将 `RunningMetricsSnapshot.motion` 送进 renderer（`VibeSports/Services/Renderer/RunnerSceneRenderer.swift`）
+   - 组装控制输入（头部 + `WASD`，可切 `camera / keyboard / mixed`）
+   - 将 `RunnerMotion`（含 `forwardInput / turnInput / headingYaw`）送进 renderer（`VibeSports/Services/Renderer/RunnerSceneRenderer.swift`）
 5. SceneKit 渲染每帧根据 `RunnerMotion` 更新：
    - cadence→speed 推导、平滑
    - 三段动画混合（Idle/SlowRun/FastRun）+ 基于 cadence 的播放速率
-   - 无限跑道推进与 segment 回收（`TerrainSegmentPool`）
+   - 导航积分（heading + x/z）与第三人称相机 rig 跟随
+   - 森林 chunk 动态加载/卸载（`ForestChunkCoordinator` + `ForestChunkNodeFactory`）
 
 ### 流程 B：结束会话 → 资源释放与指标归零
 
@@ -49,6 +51,8 @@ VibeSports 是一款 macOS 原生「摄像头跑步游戏」原型：用户点�
 ### 流程 C：调试与校准（Debug 面板/快捷键）
 
 - 菜单 `Debug` 提供 pose overlay / 镜像 / stabilization / 坐标轴等开关（`VibeSports/Views/Commands/DebugCommands.swift`）。
+- 菜单 `Debug -> Control Input` 支持控制源切换：`camera / keyboard / mixed`。
+- 主窗口支持 `WASD` 键盘调试输入（不依赖摄像头即可联调）。
 - Debug 窗口：
   - `Runner Animations`：检查/播放 `Runner.usdz` 内 Skeleton clips（`VibeSports/Views/Debug/RunnerAnimationDebugView.swift`）
   - `Runner Tuning`：实时调 stride、steps/loop、blend 参数等（`VibeSports/Views/Debug/RunnerTuningDebugView.swift`）
@@ -102,21 +106,24 @@ VibeSports 是一款 macOS 原生「摄像头跑步游戏」原型：用户点�
   - `VibeSportsTests/RunningMetricsTests.swift`
   - `VibeSportsTests/CadenceModelTests.swift`
 
-### 5) 场景与动画：cadence 驱动的“同步感”
+### 5) 场景与动画：cadence 驱动 + 第三人称真实转向
 
 - 做什么：用同一套 cadence→speed 来源同时驱动：
-  - 无限跑道推进（`travelZ += speed * dt`）
+  - 导航前进速度（`speed`）
+  - 转向角速度（`turnInput -> yawRate`）
   - Idle/SlowRun/FastRun 动画混合（按 speed）
   - SlowRun/FastRun 播放速率（按 cadence + steps/loop）
 - 业务规则（验收口径）：
   - 正常跑步时不出现“真人慢跑但角色飞奔”的割裂感。
-  - 停止动作后，速度与播放速率应在短时间内回落到 idle（非突变）。
-  - 场景推进速度与动画节奏必须同源（避免视觉与数值脱节）。
+  - `A/D` 或头部偏转输入越大，转向角速度越大；输入归零后保持当前朝向直行。
+  - 场景导航速度与动画节奏必须同源（避免视觉与数值脱节）。
 - 关键文件：
   - `VibeSports/Services/Renderer/RunnerSceneRenderer.swift`
+  - `VibeSports/Services/Renderer/ForestChunkNodeFactory.swift`
+  - `VibeSports/Models/World/ForestChunkCoordinator.swift`
+  - `VibeSports/Models/Runner/RunnerNavigationIntegrator.swift`
   - `VibeSports/Models/Runner/RunnerAnimationBlender.swift`
-  - `VibeSports/Services/Renderer/TerrainSegmentPool.swift`
-- 单测：`VibeSportsTests/RunnerAnimationBlenderTests.swift`、`VibeSportsTests/TerrainSegmentPoolTests.swift`
+- 单测：`VibeSportsTests/RunnerAnimationBlenderTests.swift`、`VibeSportsTests/ForestChunkCoordinatorTests.swift`、`VibeSportsTests/RunnerNavigationIntegratorTests.swift`
 
 ### 6) 设置持久化（用户偏好开关）
 
@@ -142,6 +149,9 @@ VibeSports 是一款 macOS 原生「摄像头跑步游戏」原型：用户点�
 
 - [x] 会话开始/结束：停止检测并释放摄像头资源（`RunnerGameViewModel.stop()`）。
 - [x] cadence 驱动的 motion：step→cadence→speed，并用于场景推进 + 动画混合 + 播放速率。
+- [x] 第三人称真实转向：`heading + 2D position` 导航，输入归零后保持当前朝向直行。
+- [x] 森林场景 chunk 化：移除赛道语义，改为森林块动态加载。
+- [x] 控制输入融合：头部转向 + `WASD`，支持 `camera / keyboard / mixed`。
 - [x] Debug 能力：pose overlay / 镜像 / stabilization 开关；Runner clip 检查；Runner tuning 实时调参。
 - [x] SwiftData 设置持久化（含 legacy UserDefaults best-effort seed）。
 
@@ -154,6 +164,7 @@ VibeSports 是一款 macOS 原生「摄像头跑步游戏」原型：用户点�
 - Step 检测当前主要依赖手腕相位差（`RunningStepDetector`），对“手不摆臂/姿态不标准”不鲁棒。
 - speed 目前是 cadence×stride 的“游戏速度”，stride 默认值需要靠调参/校准，不代表真实 km/h。
 - Runner tuning 目前不持久化（重启会回到默认）。
+- 键盘输入捕获目前是窗口级本地事件监听，未来可补 UI 自动化回归以防菜单交互退化。
 
 ### 下一步计划（建议，未开始）
 

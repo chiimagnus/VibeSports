@@ -217,9 +217,9 @@ Expected: TEST SUCCEEDED
 
 ---
 
-### P3：森林 Chunk 世界替换线性赛道
+### ✅P3：森林 Chunk 世界替换线性赛道
 
-### Task 8：新增森林 Chunk 协调器（纯模型）
+### ✅Task 8：新增森林 Chunk 协调器（纯模型）
 
 **Files:**
 - Create: `VibeSports/Models/World/ForestChunkCoordinator.swift`
@@ -241,7 +241,7 @@ Expected: PASS
 
 ---
 
-### Task 9：Renderer 改为第三人称导航 + 森林 chunk 渲染
+### ✅Task 9：Renderer 改为第三人称导航 + 森林 chunk 渲染
 
 **Files:**
 - Modify: `VibeSports/Services/Renderer/RunnerSceneRenderer.swift`
@@ -270,7 +270,7 @@ Expected: BUILD SUCCEEDED
 
 ---
 
-### Task 10：Debug 菜单接入输入模式切换
+### ✅Task 10：Debug 菜单接入输入模式切换
 
 **Files:**
 - Modify: `VibeSports/Views/Commands/DebugCommands.swift`
@@ -303,9 +303,9 @@ Expected: BUILD SUCCEEDED + TEST SUCCEEDED
 
 ---
 
-### P4：文档与收尾
+### ✅P4：文档与收尾
 
-### Task 11：更新业务文档与调试说明
+### ✅Task 11：更新业务文档与调试说明
 
 **Files:**
 - Modify: `.github/docs/business-logic.md`
