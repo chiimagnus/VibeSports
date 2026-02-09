@@ -20,6 +20,10 @@ private struct ShowRunnerAxesFocusedKey: FocusedValueKey {
     typealias Value = Binding<Bool>
 }
 
+private struct ControlModeFocusedKey: FocusedValueKey {
+    typealias Value = Binding<RunnerControlComposer.Mode>
+}
+
 extension FocusedValues {
     var showPoseOverlay: Binding<Bool>? {
         get { self[ShowPoseOverlayFocusedKey.self] }
@@ -44,5 +48,10 @@ extension FocusedValues {
     var showRunnerAxes: Binding<Bool>? {
         get { self[ShowRunnerAxesFocusedKey.self] }
         set { self[ShowRunnerAxesFocusedKey.self] = newValue }
+    }
+
+    var controlMode: Binding<RunnerControlComposer.Mode>? {
+        get { self[ControlModeFocusedKey.self] }
+        set { self[ControlModeFocusedKey.self] = newValue }
     }
 }

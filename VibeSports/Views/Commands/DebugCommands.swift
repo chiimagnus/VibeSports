@@ -6,6 +6,7 @@ struct DebugCommands: Commands {
     @FocusedValue(\.poseStabilizationEnabled) private var poseStabilizationEnabled
     @FocusedValue(\.showWorldAxes) private var showWorldAxes
     @FocusedValue(\.showRunnerAxes) private var showRunnerAxes
+    @FocusedValue(\.controlMode) private var controlMode
 
 #if DEBUG
     @Environment(\.openWindow) private var openWindow
@@ -56,6 +57,31 @@ struct DebugCommands: Commands {
                 Toggle("Runner Axes", isOn: showRunnerAxes)
             } else {
                 Button("Runner Axes") {}
+                    .disabled(true)
+            }
+
+            if let controlMode {
+                Menu("Control Input") {
+                    Button {
+                        controlMode.wrappedValue = .camera
+                    } label: {
+                        Text(controlMode.wrappedValue == .camera ? "✓ Camera" : "Camera")
+                    }
+
+                    Button {
+                        controlMode.wrappedValue = .keyboard
+                    } label: {
+                        Text(controlMode.wrappedValue == .keyboard ? "✓ Keyboard" : "Keyboard")
+                    }
+
+                    Button {
+                        controlMode.wrappedValue = .mixed
+                    } label: {
+                        Text(controlMode.wrappedValue == .mixed ? "✓ Mixed" : "Mixed")
+                    }
+                }
+            } else {
+                Button("Control Input") {}
                     .disabled(true)
             }
             Divider()

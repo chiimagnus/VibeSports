@@ -83,6 +83,13 @@ struct RunnerGameView: View {
                 set: { viewModel.updateShowRunnerAxes($0) }
             )
         )
+        .focusedSceneValue(
+            \.controlMode,
+            Binding(
+                get: { viewModel.controlMode },
+                set: { viewModel.updateControlMode($0) }
+            )
+        )
         .onDisappear {
             debugTools.detach(sceneRenderer: viewModel.sceneRenderer)
             viewModel.resetKeyboardInput()
@@ -98,6 +105,9 @@ struct RunnerGameView: View {
                 statusText
                     .foregroundStyle(.secondary)
                     .font(.subheadline)
+                Text("Control: \(viewModel.controlMode.debugTitle)")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
             }
 
             Spacer()

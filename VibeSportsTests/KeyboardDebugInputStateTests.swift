@@ -6,11 +6,11 @@ final class KeyboardDebugInputStateTests: XCTestCase {
         var state = KeyboardDebugInputState()
 
         state.keyDown(.a)
-        XCTAssertEqual(state.turnInput, -1)
+        XCTAssertEqual(state.turnInput, 1)
 
         state.keyUp(.a)
         state.keyDown(.d)
-        XCTAssertEqual(state.turnInput, 1)
+        XCTAssertEqual(state.turnInput, -1)
     }
 
     func test_oppositeTurnKeysCancelOut() {
@@ -47,7 +47,7 @@ final class KeyboardDebugInputStateTests: XCTestCase {
 
         state.keyDown(.a)
         state.keyDown(.w)
-        XCTAssertEqual(state.controlInput, RunnerControlInput(turnInput: -1, forwardInput: 1))
+        XCTAssertEqual(state.controlInput, RunnerControlInput(turnInput: 1, forwardInput: 1))
 
         state.keyUp(.a)
         state.keyUp(.w)

@@ -25,9 +25,9 @@ struct KeyboardDebugInputState: Sendable, Equatable {
         let right = pressedKeys.contains(.d)
         switch (left, right) {
         case (true, false):
-            return -1
-        case (false, true):
             return 1
+        case (false, true):
+            return -1
         default:
             return 0
         }
