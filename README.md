@@ -2,7 +2,8 @@
 
 VibeSports is a macOS-native “camera running game” prototype:
 start a session → capture camera frames → estimate body pose with Apple Vision →
-compute movement quality / speed / steps → drive an infinite SceneKit runner scene.
+compute movement quality / speed / steps + steering input →
+drive a third-person SceneKit forest world with real turning.
 
 ## Why
 
@@ -24,7 +25,8 @@ like jumping jacks or squats—similar to fitness-tracking apps on phones, but o
 - State & orchestration: MVVM
 - Async/event flow: Combine
 - Pose estimation: Vision
-- Rendering: SceneKit (infinite track + camera motion)
+- Rendering: SceneKit (third-person forest chunks + heading-based navigation)
+- Control input: camera head sway / keyboard `WASD` / mixed
 - Settings persistence: SwiftData
 
 More details: [business-logic.md](.github/docs/business-logic.md).

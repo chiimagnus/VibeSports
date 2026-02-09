@@ -33,6 +33,7 @@ final class PoseDetector {
             )
         }
 
+        assign(.nose, .nose)
         assign(.leftShoulder, .leftShoulder)
         assign(.rightShoulder, .rightShoulder)
         assign(.leftElbow, .leftElbow)

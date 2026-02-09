@@ -5,6 +5,7 @@ struct RunnerGameView: View {
 
     @StateObject private var viewModel: RunnerGameViewModel
     @EnvironmentObject private var debugTools: DebugToolsStore
+    @EnvironmentObject private var runnerCommands: RunnerCommandCenter
 
     init(dependencies: AppDependencies) {
         self.dependencies = dependencies
@@ -16,6 +17,17 @@ struct RunnerGameView: View {
             RunnerSceneView(renderer: viewModel.sceneRenderer)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .ignoresSafeArea()
+
+            KeyboardInputCaptureView(
+                onKeyDown: { key in
+                    viewModel.handleKeyDown(key)
+                },
+                onKeyUp: { key in
+                    viewModel.handleKeyUp(key)
+                }
+            )
+            .frame(width: 1, height: 1)
+            .opacity(0.01)
 
             VStack {
                 headerBar
@@ -30,50 +42,26 @@ struct RunnerGameView: View {
         .frame(minWidth: 900, minHeight: 600)
         .onAppear {
             debugTools.attach(sceneRenderer: viewModel.sceneRenderer)
+            runnerCommands.attach(
+                snapshot: runnerCommandSnapshot,
+                handlers: makeRunnerCommandHandlers()
+            )
             viewModel.updateStrideLengthMetersPerStep(debugTools.runnerTuning.cadence.strideLengthMetersPerStep)
             viewModel.updateShowWorldAxes(viewModel.showWorldAxes)
             viewModel.updateShowRunnerAxes(viewModel.showRunnerAxes)
         }
-        .onChange(of: debugTools.runnerTuning.cadence) { cadence in
-            viewModel.updateStrideLengthMetersPerStep(cadence.strideLengthMetersPerStep)
+        .onChange(of: debugTools.runnerTuning.cadence) { _, cadence in
+            viewModel.updateStrideLengthMetersPerStep(
+                cadence.strideLengthMetersPerStep
+            )
         }
-        .focusedSceneValue(
-            \.showPoseOverlay,
-            Binding(
-                get: { viewModel.showPoseOverlay },
-                set: { viewModel.updateShowPoseOverlay($0) }
-            )
-        )
-        .focusedSceneValue(
-            \.mirrorCamera,
-            Binding(
-                get: { viewModel.mirrorCamera },
-                set: { viewModel.updateMirrorCamera($0) }
-            )
-        )
-        .focusedSceneValue(
-            \.poseStabilizationEnabled,
-            Binding(
-                get: { viewModel.poseStabilizationEnabled },
-                set: { viewModel.updatePoseStabilizationEnabled($0) }
-            )
-        )
-        .focusedSceneValue(
-            \.showWorldAxes,
-            Binding(
-                get: { viewModel.showWorldAxes },
-                set: { viewModel.updateShowWorldAxes($0) }
-            )
-        )
-        .focusedSceneValue(
-            \.showRunnerAxes,
-            Binding(
-                get: { viewModel.showRunnerAxes },
-                set: { viewModel.updateShowRunnerAxes($0) }
-            )
-        )
+        .onChange(of: runnerCommandSnapshot) { _, snapshot in
+            runnerCommands.apply(snapshot: snapshot)
+        }
         .onDisappear {
             debugTools.detach(sceneRenderer: viewModel.sceneRenderer)
+            runnerCommands.detach()
+            viewModel.resetKeyboardInput()
             viewModel.stopIfNeeded()
         }
     }
@@ -86,6 +74,9 @@ struct RunnerGameView: View {
                 statusText
                     .foregroundStyle(.secondary)
                     .font(.subheadline)
+                Text("Control: \(viewModel.controlMode.debugTitle)")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
             }
 
             Spacer()
@@ -171,6 +162,29 @@ struct RunnerGameView: View {
                 }
         }
             .shadow(color: .black.opacity(0.25), radius: 22, y: 12)
+    }
+
+    private var runnerCommandSnapshot: RunnerCommandCenter.Snapshot {
+        RunnerCommandCenter.Snapshot(
+            showPoseOverlay: viewModel.showPoseOverlay,
+            mirrorCamera: viewModel.mirrorCamera,
+            poseStabilizationEnabled: viewModel.poseStabilizationEnabled,
+            showWorldAxes: viewModel.showWorldAxes,
+            showRunnerAxes: viewModel.showRunnerAxes,
+            controlMode: viewModel.controlMode
+        )
+    }
+
+    private func makeRunnerCommandHandlers() -> RunnerCommandCenter.Handlers {
+        let vm = viewModel
+        return RunnerCommandCenter.Handlers(
+            updateShowPoseOverlay: { [weak vm] in vm?.updateShowPoseOverlay($0) },
+            updateMirrorCamera: { [weak vm] in vm?.updateMirrorCamera($0) },
+            updatePoseStabilizationEnabled: { [weak vm] in vm?.updatePoseStabilizationEnabled($0) },
+            updateShowWorldAxes: { [weak vm] in vm?.updateShowWorldAxes($0) },
+            updateShowRunnerAxes: { [weak vm] in vm?.updateShowRunnerAxes($0) },
+            updateControlMode: { [weak vm] in vm?.updateControlMode($0) }
+        )
     }
 }
 

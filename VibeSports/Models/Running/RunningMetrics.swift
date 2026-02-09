@@ -16,7 +16,10 @@ struct RunningMetricsSnapshot: Sendable, Equatable {
         RunnerMotion(
             speedMetersPerSecond: speedMetersPerSecond,
             cadenceStepsPerSecond: cadenceStepsPerSecond,
-            cadenceStepsPerMinute: cadenceStepsPerMinute
+            cadenceStepsPerMinute: cadenceStepsPerMinute,
+            forwardInput: 0,
+            turnInput: 0,
+            headingYaw: 0
         )
     }
 }

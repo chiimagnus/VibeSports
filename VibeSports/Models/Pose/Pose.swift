@@ -1,6 +1,7 @@
 import CoreGraphics
 
 enum PoseJointName: String, Sendable, CaseIterable {
+    case nose
     case leftShoulder
     case rightShoulder
     case leftElbow
@@ -27,4 +28,3 @@ struct Pose: Sendable, Equatable {
         joints[name]
     }
 }
-

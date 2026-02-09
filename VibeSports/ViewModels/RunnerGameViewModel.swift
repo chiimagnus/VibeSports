@@ -22,12 +22,16 @@ final class RunnerGameViewModel: ObservableObject {
 
     @Published private(set) var showWorldAxes: Bool = false
     @Published private(set) var showRunnerAxes: Bool = false
+    @Published private(set) var controlMode: RunnerControlComposer.Mode = .mixed
 
     private let clock: any Clock
     private let settingsRepository: any SettingsRepository
 
     private var runningMetrics = RunningMetrics()
     private var poseStabilizer = PoseStabilizer()
+    private var headSteeringSignal = HeadSteeringSignal()
+    private var keyboardDebugInputState = KeyboardDebugInputState()
+    private var controlComposer = RunnerControlComposer(mode: .mixed)
 
     private var cancellables: Set<AnyCancellable> = []
 
@@ -92,7 +96,9 @@ final class RunnerGameViewModel: ObservableObject {
         cameraSession.stop()
         sceneRenderer.reset()
         runningMetrics.reset()
+        keyboardDebugInputState.reset()
         latestPose = nil
+        stabilizedPose = nil
         metrics = RunningMetricsSnapshot(
             poseDetected: false,
             movementQualityPercent: 0,
@@ -137,6 +143,7 @@ final class RunnerGameViewModel: ObservableObject {
         poseStabilizationEnabled = isEnabled
         poseStabilizer.reset()
         stabilizedPose = nil
+        pushCurrentControlMotion()
         do {
             try settingsRepository.updatePoseStabilizationEnabled(isEnabled)
         } catch {}
@@ -152,6 +159,27 @@ final class RunnerGameViewModel: ObservableObject {
         sceneRenderer.setShowRunnerAxes(isEnabled)
     }
 
+    func updateControlMode(_ mode: RunnerControlComposer.Mode) {
+        controlMode = mode
+        controlComposer.mode = mode
+        pushCurrentControlMotion()
+    }
+
+    func handleKeyDown(_ key: KeyboardDebugInputState.Key) {
+        keyboardDebugInputState.keyDown(key)
+        pushCurrentControlMotion()
+    }
+
+    func handleKeyUp(_ key: KeyboardDebugInputState.Key) {
+        keyboardDebugInputState.keyUp(key)
+        pushCurrentControlMotion()
+    }
+
+    func resetKeyboardInput() {
+        keyboardDebugInputState.reset()
+        pushCurrentControlMotion()
+    }
+
     func updateStrideLengthMetersPerStep(_ strideLengthMetersPerStep: Double) {
         runningMetrics.configuration.strideLengthMetersPerStep = max(0, strideLengthMetersPerStep)
     }
@@ -165,11 +193,39 @@ final class RunnerGameViewModel: ObservableObject {
             stabilizedPose = pose
         }
 
+        let poseForControl = poseStabilizationEnabled ? stabilizedPose : pose
         let snapshot = runningMetrics.ingest(
             pose: pose,
             now: clock.now
         )
         metrics = snapshot
-        sceneRenderer.setMotion(snapshot.motion)
+        sceneRenderer.setMotion(makeMotion(from: snapshot, pose: poseForControl))
+    }
+
+    private func makeMotion(from snapshot: RunningMetricsSnapshot, pose: Pose?) -> RunnerMotion {
+        let cameraInput = RunnerControlInput(
+            turnInput: headSteeringSignal.turnInput(from: pose),
+            forwardInput: snapshot.speedMetersPerSecond > 0.05 ? 1 : 0
+        )
+        let keyboardInput = keyboardDebugInputState.controlInput
+        let controlInput = controlComposer.compose(
+            cameraInput: cameraInput,
+            keyboardInput: keyboardInput
+        )
+
+        return RunnerMotion(
+            speedMetersPerSecond: snapshot.speedMetersPerSecond,
+            cadenceStepsPerSecond: snapshot.cadenceStepsPerSecond,
+            cadenceStepsPerMinute: snapshot.cadenceStepsPerMinute,
+            forwardInput: controlInput.forwardInput,
+            turnInput: controlInput.turnInput,
+            headingYaw: 0
+        )
+    }
+
+    private func pushCurrentControlMotion() {
+        let poseForControl = poseStabilizationEnabled ? stabilizedPose : latestPose
+        let motion = makeMotion(from: metrics, pose: poseForControl)
+        sceneRenderer.setMotion(motion)
     }
 }

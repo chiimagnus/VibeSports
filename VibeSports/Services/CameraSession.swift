@@ -1,4 +1,4 @@
-import AVFoundation
+@preconcurrency import AVFoundation
 import Combine
 import Foundation
 import QuartzCore
@@ -37,6 +37,7 @@ final class CameraSession: NSObject, ObservableObject {
     private let poseSubject = PassthroughSubject<Pose?, Never>()
 
     private let outputQueue = DispatchQueue(label: "com.chiimagnus.vibesports.camera.output")
+    private let sessionQueue = DispatchQueue(label: "com.chiimagnus.vibesports.camera.session")
     private let videoOutput = AVCaptureVideoDataOutput()
     private let outputHandler: OutputHandler
 
@@ -64,7 +65,13 @@ final class CameraSession: NSObject, ObservableObject {
             }
 
             outputHandler.isEnabled = true
-            captureSession.startRunning()
+            let session = captureSession
+            await withCheckedContinuation { continuation in
+                sessionQueue.async {
+                    session.startRunning()
+                    continuation.resume()
+                }
+            }
             state = .running
         } catch {
             state = .failed(message: String(describing: error))
@@ -73,7 +80,10 @@ final class CameraSession: NSObject, ObservableObject {
 
     func stop() {
         outputHandler.isEnabled = false
-        captureSession.stopRunning()
+        let session = captureSession
+        sessionQueue.async {
+            session.stopRunning()
+        }
         state = .idle
     }
 
