@@ -278,8 +278,15 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
             (motion.cadenceStepsPerSecond - displayedCadenceStepsPerSecond) * Defaults.cadenceSmoothingAlpha
 
         let strideLength = max(0, tuning.cadence.strideLengthMetersPerStep)
-        let cadenceDerivedSpeed = displayedCadenceStepsPerSecond * strideLength
-        let keyboardDerivedSpeed = abs(motion.forwardInput) * Defaults.keyboardDebugForwardSpeedMetersPerSecond
+        let cadenceDerivedSpeed = max(
+            motion.speedMetersPerSecond,
+            displayedCadenceStepsPerSecond * strideLength
+        )
+        let hasCadenceDrivenSpeed = motion.cadenceStepsPerSecond > 0.01 || motion.speedMetersPerSecond > 0.05
+        // Keyboard fallback speed is only for debug-driving without cadence input.
+        let keyboardDerivedSpeed = hasCadenceDrivenSpeed
+            ? 0
+            : abs(motion.forwardInput) * Defaults.keyboardDebugForwardSpeedMetersPerSecond
         let targetSpeedMetersPerSecond = max(cadenceDerivedSpeed, keyboardDerivedSpeed)
 
         displayedSpeedMetersPerSecond +=
