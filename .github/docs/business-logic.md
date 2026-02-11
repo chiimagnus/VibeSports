@@ -1,200 +1,134 @@
-# VibeSports — business-logic.md
-
-> 面向不读代码的 AI：描述 **WHAT + WHY + WHERE**（业务目标、业务规则、以及“去哪找实现”）。
+# VibeSports — Business Logic Map
 
 ## 产品概述
 
-VibeSports 是一款 macOS 原生「摄像头跑步游戏」原型：用户点击开始后，App 用摄像头 + Vision 做人体姿态估计，估计 step/cadence/speed，并从头部左右摆动提取转向输入。渲染层基于 `heading + 2D position` 在第三人称森林场景中连续转弯与前进。当前阶段优先级是 **“动作同步感” > “真实速度精度”**。
+VibeSports 是一款面向桌面场景的 macOS 原生运动游戏：用户在等待开发任务执行时，可以快速开始一段“摄像头驱动的跑步会话”，通过身体动作驱动第三人称场景前进与转向。
 
-技术栈：macOS 14+ / Swift 6 / SwiftUI + Combine（状态与事件流）/ Vision（pose）/ AVFoundation（camera）/ SceneKit（渲染）/ SwiftData（设置持久化）。
+目标用户：
+- 长时间在电脑前工作的开发者/知识工作者
+- 需要短时、低门槛运动打断久坐的人群
 
-## 架构分层
+核心体验：
+- 一键开始会话
+- 动作被实时识别并转成游戏内运动反馈
+- 会话结束后立即回到工作状态
 
-- `VibeSports/Views/`：SwiftUI UI（只做展示与交互；不做业务计算）
-- `VibeSports/ViewModels/`：会话状态机 + 业务编排（订阅 camera pose，产出 metrics，驱动 renderer）
-- `VibeSports/Models/`：纯模型与算法（step/cadence/quality 等；禁止依赖 SwiftUI / Combine）
-- `VibeSports/Services/`：副作用与基础设施（Camera、Vision、SceneKit renderer、Settings、依赖注入）
+输入与输出：
+- 输入：摄像头视频帧、用户动作（含头部偏转）、可选键盘输入
+- 输出：实时运动指标（步数/步频/速度/动作质量）与场景反馈（角色移动/转向/动画）
 
-依赖方向：`Views → ViewModels → (Models + Services)`，`Services` 不反向依赖 UI 层。
+## 核心业务能力（Capabilities）
 
-关键入口/装配：
-- App 入口：`VibeSports/Views/VibeSportsApp.swift`
-- 根视图：`VibeSports/Views/RunnerGame/RunnerGameView.swift`
-- 依赖装配：`VibeSports/Services/AppDependencies.swift`
+### 1) 会话启动与结束
+- 用户价值：快速进入/退出运动状态，不打断主任务节奏
+- 触发方式：用户点击开始或结束
+- 输入：用户操作、摄像头权限状态
+- 输出：会话状态切换（Idle/Running/Stopped）
+- 关键边界与失败方式：未授权摄像头时无法进入 Running，用户会看到权限提示
 
-## 核心业务流程
+### 2) 姿态识别与动作信号提取
+- 用户价值：让“真实动作”成为游戏输入
+- 触发方式：会话进入 Running 后持续处理帧
+- 输入：摄像头帧
+- 输出：姿态估计结果（可用/不可用）与基础动作信号
+- 关键边界与失败方式：低光、遮挡、出画会导致姿态丢失，表现为输入衰减或暂停
 
-### 流程 A：开始会话 → 运行循环（pose 驱动场景与动画）
+### 3) 跑步指标计算
+- 用户价值：把原始姿态转成可理解的运动反馈
+- 触发方式：每次姿态更新
+- 输入：姿态信号、历史窗口
+- 输出：步数、步频、速度、动作质量、近距离模式判定
+- 关键边界与失败方式：异常动作会降低质量分，指标可能短时波动
 
-1. 用户在主窗口看到 `Ready` 覆盖层，点击 `Start`（`VibeSports/Views/RunnerGame/RunnerGameView.swift`）。
-2. `RunnerGameViewModel.startTapped()` 切换到 running 并启动摄像头（`VibeSports/ViewModels/RunnerGameViewModel.swift`）。
-3. `CameraSession` 请求权限、配置采集，并以固定频率处理视频帧；每帧尝试产出 `Pose?`（`VibeSports/Services/CameraSession.swift`、`VibeSports/Services/PoseDetector.swift`）。
-4. ViewModel 接收 pose：
-   - （可选）做姿态稳定化（`VibeSports/Models/Pose/PoseStabilizer.swift`）
-   - `RunningMetrics.ingest(...)` 计算 `stepCount / cadence / speed / movementQuality / closeUpMode`（`VibeSports/Models/Running/RunningMetrics.swift`）
-   - 组装控制输入（头部 + `WASD`，可切 `camera / keyboard / mixed`）
-   - 将 `RunnerMotion`（含 `forwardInput / turnInput / headingYaw`）送进 renderer（`VibeSports/Services/Renderer/RunnerSceneRenderer.swift`）
-5. SceneKit 渲染每帧根据 `RunnerMotion` 更新：
-   - cadence→speed 推导、平滑
-   - 三段动画混合（Idle/SlowRun/FastRun）+ 基于 cadence 的播放速率
-   - 导航积分（heading + x/z）与第三人称相机 rig 跟随
-   - 森林 chunk 动态加载/卸载（`ForestChunkCoordinator` + `ForestChunkNodeFactory`）
+### 4) 场景驱动与沉浸反馈
+- 用户价值：动作与视觉反馈同步，形成“动起来”的即时奖励
+- 触发方式：指标更新后驱动渲染层
+- 输入：速度/转向输入/朝向
+- 输出：角色导航、相机跟随、动画混合、场景连续推进
+- 关键边界与失败方式：输入不稳定时优先保证体验连续，允许短时平滑过渡
 
-### 流程 B：结束会话 → 资源释放与指标归零
+### 5) 控制方式兼容（相机/键盘/混合）
+- 用户价值：在不同环境下都能保持可用性
+- 触发方式：用户切换控制源或使用键盘
+- 输入：头部偏转、键盘 WASD
+- 输出：统一控制输入流
+- 关键边界与失败方式：摄像头不可用时仍可用键盘进行联调与体验
 
-1. 用户点击 `End` 或窗口消失触发 stop（`VibeSports/Views/RunnerGame/RunnerGameView.swift`）。
-2. `RunnerGameViewModel.stop()`：
-   - 停止摄像头采集（`CameraSession.stop()`）
-   - 重置渲染器状态（`RunnerSceneRenderer.reset()`）
-   - 重置 RunningMetrics 与 UI 指标（`RunningMetrics.reset()`）
+### 6) 偏好与调试开关管理
+- 用户价值：保留个人习惯，降低重复设置成本
+- 触发方式：用户修改设置
+- 输入：显示/镜像/稳定化等开关
+- 输出：下次启动可复用的偏好状态
+- 关键边界与失败方式：设置存储异常时回退到默认值，不阻断主流程
 
-### 流程 C：调试与校准（Debug 面板/快捷键）
+## 核心用户流程（User Journeys）
 
-- 菜单 `Debug` 提供 pose overlay / 镜像 / stabilization / 坐标轴等开关（`VibeSports/Views/Commands/DebugCommands.swift`）。
-- 菜单 `Debug -> Control Input` 支持控制源切换：`camera / keyboard / mixed`。
-- 主窗口支持 `WASD` 键盘调试输入（不依赖摄像头即可联调）。
-- Debug 窗口：
-  - `Runner Animations`：检查/播放 `Runner.usdz` 内 Skeleton clips（`VibeSports/Views/Debug/RunnerAnimationDebugView.swift`）
-  - `Runner Tuning`：实时调 stride、steps/loop、blend 参数等（`VibeSports/Views/Debug/RunnerTuningDebugView.swift`）
-- 调参流：`DebugToolsStore.runnerTuning` → 绑定到 `RunnerSceneRenderer.tuning`（`VibeSports/Services/DebugToolsStore.swift`）。
+### Journey A：短时运动闭环（主流程）
+1. 用户在工作间隙打开应用并点击开始。
+2. 系统检查并使用摄像头输入。
+3. 姿态被持续估计并转为运动指标。
+4. 场景按速度与转向实时响应，用户获得即时反馈。
+5. 用户点击结束，会话停止并释放资源。
 
-## 模块详情
+### Journey B：摄像头受限时的替代流程
+1. 用户开始会话但摄像头不可用或不稳定。
+2. 系统提示状态，同时允许键盘/混合输入。
+3. 用户仍可完成短时运动或联调流程。
+4. 会话结束后返回待机。
 
-### 1) 会话状态与 UI 反馈
+### Journey C：个性化调整流程
+1. 用户打开调试或设置项（例如镜像、姿态稳定化）。
+2. 调整后立刻看到场景/输入反馈变化。
+3. 偏好保存并在后续会话复用。
 
-- 做什么：把 App 体验压缩成 “Ready → Running → Ready”，并把摄像头状态/速度显示在 header。
-- 业务规则：
-  - 未授权时明确提示系统设置入口。
-  - stop 后必须释放摄像头与渲染循环，并清空指标与 pose。
-- 关键文件：
-  - `VibeSports/Views/RunnerGame/RunnerGameView.swift`
-  - `VibeSports/ViewModels/RunnerGameViewModel.swift`
-  - `VibeSports/Services/CameraSession.swift`
+## 业务流程图（Mermaid）
 
-### 2) Pose 输入：摄像头采集与 Vision 估计
+```mermaid
+flowchart LR
+  A[Idle 待机] --> B[点击 Start]
+  B --> C{摄像头可用?}
+  C -->|是| D[姿态估计]
+  C -->|否| E[提示权限/降级输入]
+  D --> F[计算指标: 步数/步频/速度]
+  E --> G[键盘或混合输入]
+  F --> H[驱动场景与动画]
+  G --> H
+  H --> I[用户点击 End]
+  I --> J[停止检测并释放资源]
+  J --> A
+```
 
-- 做什么：从摄像头帧中输出 `Pose?`（关节坐标 + 置信度）。
-- 业务规则：
-  - 采样频率固定（当前约 20 Hz），丢帧时“宁可稀疏也不积压”。
-  - pose 不可用时输出 nil，后续链路负责衰减到 idle。
-- 关键文件：`VibeSports/Services/CameraSession.swift`、`VibeSports/Services/PoseDetector.swift`、`VibeSports/Models/Pose/Pose.swift`
+## 业务规则与约束（Rules & Constraints）
 
-### 3) 姿态稳定化与叠加显示（Debug 可控）
+- 会话状态必须遵循 Idle/Running/Stopped，结束会话必须释放摄像头资源。
+- 姿态不可用时不应阻塞主线程，应降级为可恢复状态。
+- 场景速度与动画节奏应同源，避免“速度快慢与动画不一致”。
+- 设置持久化属于用户偏好层，不应影响会话核心可用性。
+- 默认面向短时运动场景，强调低启动成本与快速退出。
 
-- 做什么：减少 pose overlay 的闪烁与抖动，提升调试可读性。
-- 业务规则：
-  - 用置信度滞回（on/off threshold）与短暂 hold window 抵抗丢帧。
-  - 可通过开关完全关闭稳定化（便于对比）。
-- 关键文件：`VibeSports/Models/Pose/PoseStabilizer.swift`、`VibeSports/Views/RunnerGame/PoseOverlayView.swift`
-- 单测：`VibeSportsTests/PoseStabilizerTests.swift`
+## 产物与可见结果（Outputs）
 
-### 4) Running Metrics：step/cadence/speed/movementQuality
+用户可见结果：
+- 实时指标：步数、步频、速度、动作质量
+- 实时反馈：角色移动、转向、动画变化、场景推进
+- 状态反馈：权限提示、可用输入源、会话状态
 
-- 做什么：把 `Pose?` 转换成可用于渲染与 UI 的 `RunningMetricsSnapshot`。
-- 指标口径（当前实现的业务定义）：
-  - `step`：`RunningStepDetector.stepCount` 每 +1 记为 1 step（不除以 2）。
-  - `cadence`：`CadenceModel.cadenceStepsPerSecond`（并提供 steps/min = *60）。
-  - `speed`：`speedMetersPerSecond = cadence * strideLengthMetersPerStep`（用于场景推进与动画混合）。
-  - `movementQuality`：动作有效性（0–1），用于 gating step 计数与抑制噪声。
-  - `closeUpMode`：用户靠近镜头时（肩宽更大且置信度足够）降低阈值，提升可用性。
-- 关键文件：
-  - `VibeSports/Models/Running/RunningMetrics.swift`
-  - `VibeSports/Models/Running/RunningStepDetector.swift`
-  - `VibeSports/Models/Running/CadenceModel.swift`
-  - `VibeSports/Models/Runner/RunnerMotion.swift`
-- 单测：
-  - `VibeSportsTests/RunningMetricsTests.swift`
-  - `VibeSportsTests/CadenceModelTests.swift`
+会话级结果：
+- 一次“开始到结束”的完整运动闭环
+- 偏好设置在后续会话中延续
 
-### 5) 场景与动画：cadence 驱动 + 第三人称真实转向
+## 术语表（Glossary）
 
-- 做什么：用同一套 cadence→speed 来源同时驱动：
-  - 导航前进速度（`speed`）
-  - 转向角速度（`turnInput -> yawRate`）
-  - Idle/SlowRun/FastRun 动画混合（按 speed）
-  - SlowRun/FastRun 播放速率（按 cadence + steps/loop）
-- 业务规则（验收口径）：
-  - 正常跑步时不出现“真人慢跑但角色飞奔”的割裂感。
-  - `A/D` 或头部偏转输入越大，转向角速度越大；输入归零后保持当前朝向直行。
-  - 场景导航速度与动画节奏必须同源（避免视觉与数值脱节）。
-- 关键文件：
-  - `VibeSports/Services/Renderer/RunnerSceneRenderer.swift`
-  - `VibeSports/Services/Renderer/ForestChunkNodeFactory.swift`
-  - `VibeSports/Models/World/ForestChunkCoordinator.swift`
-  - `VibeSports/Models/Runner/RunnerNavigationIntegrator.swift`
-  - `VibeSports/Models/Runner/RunnerAnimationBlender.swift`
-- 单测：`VibeSportsTests/RunnerAnimationBlenderTests.swift`、`VibeSportsTests/ForestChunkCoordinatorTests.swift`、`VibeSportsTests/RunnerNavigationIntegratorTests.swift`
+- 会话（Session）：一次从开始到结束的运动过程。
+- 姿态估计（Pose Estimation）：从视频帧提取人体关键点。
+- 动作质量（Movement Quality）：用于判断当前动作是否稳定有效的评分。
+- 混合输入（Mixed Input）：摄像头输入与键盘输入共同作用。
+- 场景推进（World Progression）：角色随输入在场景中持续前进和转向。
 
-### 6) 设置持久化（用户偏好开关）
+## 入口索引（Entry Index）
 
-- 持久化项（当前仅偏好类开关）：
-  - 是否显示 pose overlay
-  - 是否镜像摄像头预览
-  - 是否启用姿态稳定化
-- 关键文件：`VibeSports/Services/Settings/`（`AppSettings` + `SwiftDataSettingsRepository`）
-- 单测：`VibeSportsTests/SwiftDataSettingsRepositoryTests.swift`
-
-### 7) Runner 资产（Runner.usdz）与可调参
-
-- 做什么：Runner 模型需包含 Skeleton 与 3 个 clip（Idle/SlowRun/FastRun）；调参面板用于现场校准 stride、steps/loop、混合区间与平滑系数等。
-- 关键文件：
-  - `VibeSports/Resources/Runner.usdz`
-  - `scripts/build_runner_usdz.sh`
-  - `VibeSports/Views/Debug/RunnerTuningDebugView.swift`
-  - `VibeSports/Services/DebugToolsStore.swift`
-
-## 当前状态与待办
-
-### 已完成
-
-- [x] 会话开始/结束：停止检测并释放摄像头资源（`RunnerGameViewModel.stop()`）。
-- [x] cadence 驱动的 motion：step→cadence→speed，并用于场景推进 + 动画混合 + 播放速率。
-- [x] 第三人称真实转向：`heading + 2D position` 导航，输入归零后保持当前朝向直行。
-- [x] 森林场景 chunk 化：移除赛道语义，改为森林块动态加载。
-- [x] 控制输入融合：头部转向 + `WASD`，支持 `camera / keyboard / mixed`。
-- [x] Debug 能力：pose overlay / 镜像 / stabilization 开关；Runner clip 检查；Runner tuning 实时调参。
-- [x] SwiftData 设置持久化（含 legacy UserDefaults best-effort seed）。
-
-### 进行中
-
-- [ ] 暂无（以 `.github/plans/` 为准）。
-
-### 已知问题 / 技术债
-
-- Step 检测当前主要依赖手腕相位差（`RunningStepDetector`），对“手不摆臂/姿态不标准”不鲁棒。
-- speed 目前是 cadence×stride 的“游戏速度”，stride 默认值需要靠调参/校准，不代表真实 km/h。
-- Runner tuning 目前不持久化（重启会回到默认）。
-- 键盘输入捕获目前是窗口级本地事件监听，未来可补 UI 自动化回归以防菜单交互退化。
-
-### 下一步计划（建议，未开始）
-
-- 优化 step/cadence 稳定性（结合腿部关节、更多 gating、或改进 close-up 策略）。
-- 引入更多“短运动”模式（跳绳/开合跳/深蹲等），并提供明确的开始/计次/结束体验。
-- 将 Runner tuning（stride、steps/loop、blend 参数）做可选持久化，便于不同用户快速复用。
-
-## 设计决策记录
-
-### 决策 1：用 cadence 驱动速度与动画（而不是固定加速度爬升）
-
-- 背景：固定加速度会导致速度很快顶到上限，真人节奏变化也难以同步。
-- 决定：以 step 事件估计 cadence，并用 cadence 同时驱动 speed、场景推进与动画播放速率。
-- 相关实现：`VibeSports/Models/Running/CadenceModel.swift`、`VibeSports/Models/Running/RunningMetrics.swift`、`VibeSports/Services/Renderer/RunnerSceneRenderer.swift`
-
-### 决策 2：Step 定义先用“摆臂相位变化”作为 MVP
-
-- 背景：Vision 上半身关节更稳定，MVP 阶段先要一个可用的节奏输入。
-- 决定：以左右手腕 y 差的相位变化计 step，并用 movementQuality 做 gating。
-- 相关实现：`VibeSports/Models/Running/RunningStepDetector.swift`
-
-### 决策 3：Debug 调参实时生效，但不做持久化
-
-- 背景：当前重点是“同步感”快速迭代；持久化会增加迭代成本与迁移复杂度。
-- 决定：Runner tuning 通过 `DebugToolsStore` 绑定到 renderer，即时生效；未来再决定是否进入 Settings。
-- 相关实现：`VibeSports/Services/DebugToolsStore.swift`、`VibeSports/Views/Debug/RunnerTuningDebugView.swift`
-
-## 构建与测试
-
-- 打开工程：`open VibeSports.xcodeproj`
-- Build：`xcodebuild -project VibeSports.xcodeproj -scheme VibeSports -destination 'platform=macOS' build`
-- Test：`xcodebuild -project VibeSports.xcodeproj -scheme VibeSports -destination 'platform=macOS' test`
-- 单测示例：`xcodebuild -project VibeSports.xcodeproj -scheme VibeSports -destination 'platform=macOS' test -only-testing:VibeSportsTests/RunningMetricsTests`
+- `VibeSports/Views/VibeSportsApp.swift`
+- `VibeSports/Views/RunnerGame/RunnerGameView.swift`
+- `VibeSports/ViewModels/RunnerGameViewModel.swift`
+- `VibeSports/Services/AppDependencies.swift`
+- `VibeSports/Models/Running/RunningMetrics.swift`
