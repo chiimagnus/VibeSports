@@ -2,6 +2,8 @@ import XCTest
 @testable import VibeSports
 
 final class KeyboardDebugInputStateTests: XCTestCase {
+    private let slowForward = KeyboardDebugInputState.Defaults.slowForwardInput
+
     func test_adKeysMapToTurnInput() {
         var state = KeyboardDebugInputState()
 
@@ -26,11 +28,32 @@ final class KeyboardDebugInputStateTests: XCTestCase {
         var state = KeyboardDebugInputState()
 
         state.keyDown(.w)
-        XCTAssertEqual(state.forwardInput, 1)
+        XCTAssertEqual(state.forwardInput, slowForward, accuracy: 0.0001)
 
         state.keyUp(.w)
         state.keyDown(.s)
         XCTAssertEqual(state.forwardInput, -1)
+    }
+
+    func test_shiftBoostsForwardInputToFullSpeed() {
+        var state = KeyboardDebugInputState()
+
+        state.setBoostPressed(true)
+        state.keyDown(.w)
+        XCTAssertEqual(state.forwardInput, 1, accuracy: 0.0001)
+    }
+
+    func test_shiftToggleUpdatesSpeedWhileHoldingW() {
+        var state = KeyboardDebugInputState()
+
+        state.keyDown(.w)
+        XCTAssertEqual(state.forwardInput, slowForward, accuracy: 0.0001)
+
+        state.setBoostPressed(true)
+        XCTAssertEqual(state.forwardInput, 1, accuracy: 0.0001)
+
+        state.setBoostPressed(false)
+        XCTAssertEqual(state.forwardInput, slowForward, accuracy: 0.0001)
     }
 
     func test_oppositeForwardKeysCancelOut() {
@@ -47,7 +70,7 @@ final class KeyboardDebugInputStateTests: XCTestCase {
 
         state.keyDown(.a)
         state.keyDown(.w)
-        XCTAssertEqual(state.controlInput, RunnerControlInput(turnInput: 1, forwardInput: 1))
+        XCTAssertEqual(state.controlInput, RunnerControlInput(turnInput: 1, forwardInput: slowForward))
 
         state.keyUp(.a)
         state.keyUp(.w)

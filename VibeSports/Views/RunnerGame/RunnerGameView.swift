@@ -24,6 +24,9 @@ struct RunnerGameView: View {
                 },
                 onKeyUp: { key in
                     viewModel.handleKeyUp(key)
+                },
+                onBoostModifierChanged: { isPressed in
+                    viewModel.handleBoostModifierChanged(isPressed)
                 }
             )
             .frame(width: 1, height: 1)

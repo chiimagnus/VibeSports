@@ -1,4 +1,8 @@
 struct KeyboardDebugInputState: Sendable, Equatable {
+    enum Defaults {
+        static let slowForwardInput: Double = 0.45
+    }
+
     enum Key: Hashable, Sendable {
         case w
         case a
@@ -7,6 +11,7 @@ struct KeyboardDebugInputState: Sendable, Equatable {
     }
 
     private var pressedKeys: Set<Key> = []
+    private var isBoostPressed = false
 
     mutating func keyDown(_ key: Key) {
         pressedKeys.insert(key)
@@ -18,6 +23,11 @@ struct KeyboardDebugInputState: Sendable, Equatable {
 
     mutating func reset() {
         pressedKeys.removeAll(keepingCapacity: true)
+        isBoostPressed = false
+    }
+
+    mutating func setBoostPressed(_ isPressed: Bool) {
+        isBoostPressed = isPressed
     }
 
     var turnInput: Double {
@@ -38,7 +48,7 @@ struct KeyboardDebugInputState: Sendable, Equatable {
         let backward = pressedKeys.contains(.s)
         switch (forward, backward) {
         case (true, false):
-            return 1
+            return isBoostPressed ? 1 : Defaults.slowForwardInput
         case (false, true):
             return -1
         default:
