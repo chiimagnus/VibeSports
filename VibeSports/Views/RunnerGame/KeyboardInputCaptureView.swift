@@ -64,7 +64,8 @@ final class KeyboardCaptureNSView: NSView {
             guard self.shouldHandle(event: event) else { return event }
             guard let key = Self.key(from: event) else { return event }
             self.onKeyDown?(key)
-            return event
+            // Swallow handled WASD events to avoid system alert sound from responder fallback.
+            return nil
         }
 
         keyUpMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyUp) { [weak self] event in
@@ -72,7 +73,7 @@ final class KeyboardCaptureNSView: NSView {
             guard self.shouldHandle(event: event) else { return event }
             guard let key = Self.key(from: event) else { return event }
             self.onKeyUp?(key)
-            return event
+            return nil
         }
     }
 
