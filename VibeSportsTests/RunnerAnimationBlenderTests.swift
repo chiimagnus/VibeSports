@@ -48,5 +48,15 @@ final class RunnerAnimationBlenderTests: XCTestCase {
         XCTAssertEqual(blender.blend(speedMetersPerSecond: 2).playbackRate, 1.0, accuracy: 0.000001)
         XCTAssertEqual(blender.blend(speedMetersPerSecond: 100).playbackRate, 3.0, accuracy: 0.000001)
     }
-}
 
+    func test_cameraRunningTuning_reachesFastBlendAtHighCadenceSpeed() {
+        var blender = RunnerAnimationBlender()
+        blender.configuration = RunnerSceneRenderer.Tuning.default.blender
+
+        let blend = blender.blend(speedMetersPerSecond: 2.6)
+
+        XCTAssertGreaterThan(blend.fastRunWeight, 0.7)
+        XCTAssertLessThan(blend.slowRunWeight, 0.3)
+        XCTAssertEqual(blend.idleWeight + blend.slowRunWeight + blend.fastRunWeight, 1, accuracy: 0.000001)
+    }
+}

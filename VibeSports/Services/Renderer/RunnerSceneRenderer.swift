@@ -29,11 +29,18 @@ final class RunnerSceneRenderer: ObservableObject {
         static let `default` = Tuning(
             runner: Runner(scale: 0.01),
             cadence: Cadence(
-                strideLengthMetersPerStep: 1.0,
+                strideLengthMetersPerStep: 1.05,
                 stepsPerLoop: 2.0
             ),
-            blender: RunnerAnimationBlender.Configuration(),
-            speedSmoothingAlpha: 0.20
+            blender: RunnerAnimationBlender.Configuration(
+                idleThresholdMetersPerSecond: 0.08,
+                minRunSpeedMetersPerSecond: 1.10,
+                maxRunSpeedMetersPerSecond: 2.90,
+                baseSpeedMetersPerSecond: 1.80,
+                minPlaybackRate: 0.35,
+                maxPlaybackRate: 3.20
+            ),
+            speedSmoothingAlpha: 0.30
         )
     }
 
