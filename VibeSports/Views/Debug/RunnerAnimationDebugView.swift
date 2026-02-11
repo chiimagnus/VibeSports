@@ -150,12 +150,12 @@ struct RunnerAnimationDebugView: View {
     var body: some View {
         HStack(spacing: 0) {
             RunnerUSDZPreviewSceneView(scene: viewModel.scene)
-                .frame(minWidth: 520, idealWidth: 720, maxWidth: .infinity, maxHeight: .infinity)
+                .frame(minWidth: 360, idealWidth: 640, maxWidth: .infinity, maxHeight: .infinity)
 
             Divider()
 
             inspector
-                .frame(width: 420)
+                .frame(minWidth: 320, idealWidth: 380, maxWidth: 460)
         }
         .navigationTitle("Runner Animations")
         .onAppear {

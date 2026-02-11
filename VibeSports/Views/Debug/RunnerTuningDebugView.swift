@@ -102,7 +102,6 @@ struct RunnerTuningDebugView: View {
         }
         .formStyle(.grouped)
         .padding(12)
-        .frame(minWidth: 520, minHeight: 700)
         .navigationTitle("Runner Tuning")
     }
 
