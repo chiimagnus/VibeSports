@@ -280,6 +280,14 @@ private struct ClipRow: View {
 private struct RunnerUSDZPreviewSceneView: NSViewRepresentable {
     let scene: SCNScene?
 
+    final class Coordinator {
+        var lastSceneID: ObjectIdentifier?
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
     func makeNSView(context: Context) -> SCNView {
         let view = SCNView()
         view.antialiasingMode = .multisampling4X
@@ -287,29 +295,137 @@ private struct RunnerUSDZPreviewSceneView: NSViewRepresentable {
         view.allowsCameraControl = true
         view.autoenablesDefaultLighting = true
         view.rendersContinuously = true
+        view.defaultCameraController.inertiaEnabled = false
         view.scene = scene
         return view
     }
 
     func updateNSView(_ nsView: SCNView, context: Context) {
+        let sceneChanged: Bool
+        if let scene {
+            let sceneID = ObjectIdentifier(scene)
+            sceneChanged = context.coordinator.lastSceneID != sceneID
+            context.coordinator.lastSceneID = sceneID
+        } else {
+            sceneChanged = context.coordinator.lastSceneID != nil
+            context.coordinator.lastSceneID = nil
+        }
+
         if nsView.scene !== scene {
             nsView.scene = scene
         }
-        ensureCameraAndLights(in: nsView)
+        ensureCamera(in: nsView, shouldRefit: sceneChanged)
     }
 
-    private func ensureCameraAndLights(in view: SCNView) {
+    private func ensureCamera(in view: SCNView, shouldRefit: Bool) {
         guard let scene = view.scene else { return }
 
-        let hasCamera = scene.rootNode.childNodes.contains(where: { $0.camera != nil })
-        if !hasCamera {
-            let cameraNode = SCNNode()
-            cameraNode.camera = SCNCamera()
+        let cameraNode = ensurePreviewCamera(in: scene)
+        if shouldRefit || view.pointOfView !== cameraNode {
+            fit(cameraNode: cameraNode, to: scene)
+        }
+        view.pointOfView = cameraNode
+    }
+
+    private func ensurePreviewCamera(in scene: SCNScene) -> SCNNode {
+        let cameraName = "__runnerPreviewCamera"
+        if let existing = scene.rootNode.childNode(withName: cameraName, recursively: false) {
+            return existing
+        }
+
+        let camera = SCNCamera()
+        camera.fieldOfView = 50
+        camera.zNear = 0.01
+        camera.zFar = 250
+
+        let cameraNode = SCNNode()
+        cameraNode.name = cameraName
+        cameraNode.camera = camera
+        scene.rootNode.addChildNode(cameraNode)
+        return cameraNode
+    }
+
+    private func fit(cameraNode: SCNNode, to scene: SCNScene) {
+        guard let bounds = contentBounds(in: scene) else {
             cameraNode.position = SCNVector3(0, 1.5, 3.2)
             cameraNode.look(at: SCNVector3(0, 1.2, 0))
-            scene.rootNode.addChildNode(cameraNode)
-            view.pointOfView = cameraNode
+            return
         }
+
+        let center = SCNVector3(
+            (bounds.min.x + bounds.max.x) * 0.5,
+            (bounds.min.y + bounds.max.y) * 0.5,
+            (bounds.min.z + bounds.max.z) * 0.5
+        )
+        let size = SCNVector3(
+            bounds.max.x - bounds.min.x,
+            bounds.max.y - bounds.min.y,
+            bounds.max.z - bounds.min.z
+        )
+
+        let radius = max(
+            0.3,
+            sqrt(Double(size.x * size.x + size.y * size.y + size.z * size.z)) * 0.5
+        )
+        let fovDegrees = max(20.0, min(80.0, Double(cameraNode.camera?.fieldOfView ?? 50)))
+        let fovRadians = fovDegrees * .pi / 180
+        let distance = max(radius * 1.25, radius / tan(fovRadians * 0.5) * 1.35)
+        let lookAt = SCNVector3(center.x, center.y + size.y * 0.08, center.z)
+
+        cameraNode.position = SCNVector3(lookAt.x, lookAt.y, lookAt.z + CGFloat(distance))
+        cameraNode.look(at: lookAt)
+
+        cameraNode.camera?.automaticallyAdjustsZRange = true
+        cameraNode.camera?.zNear = max(0.01, distance - radius * 2.8)
+        cameraNode.camera?.zFar = max(120, distance + radius * 8)
+    }
+
+    private func contentBounds(in scene: SCNScene) -> (min: SCNVector3, max: SCNVector3)? {
+        var hasBounds = false
+        var minBounds = SCNVector3Zero
+        var maxBounds = SCNVector3Zero
+
+        scene.rootNode.enumerateChildNodes { node, _ in
+            guard node.camera == nil, node.light == nil else { return }
+            guard node.geometry != nil || node.skinner != nil else { return }
+
+            let (localMin, localMax) = node.boundingBox
+            guard localMin.x <= localMax.x else { return }
+
+            for corner in corners(min: localMin, max: localMax) {
+                let worldCorner = node.convertPosition(corner, to: scene.rootNode)
+
+                if !hasBounds {
+                    minBounds = worldCorner
+                    maxBounds = worldCorner
+                    hasBounds = true
+                    continue
+                }
+
+                minBounds.x = min(minBounds.x, worldCorner.x)
+                minBounds.y = min(minBounds.y, worldCorner.y)
+                minBounds.z = min(minBounds.z, worldCorner.z)
+
+                maxBounds.x = max(maxBounds.x, worldCorner.x)
+                maxBounds.y = max(maxBounds.y, worldCorner.y)
+                maxBounds.z = max(maxBounds.z, worldCorner.z)
+            }
+        }
+
+        return hasBounds ? (minBounds, maxBounds) : nil
+    }
+
+    private func corners(min: SCNVector3, max: SCNVector3) -> [SCNVector3] {
+        [
+            SCNVector3(min.x, min.y, min.z),
+            SCNVector3(min.x, min.y, max.z),
+            SCNVector3(min.x, max.y, min.z),
+            SCNVector3(min.x, max.y, max.z),
+            SCNVector3(max.x, min.y, min.z),
+            SCNVector3(max.x, min.y, max.z),
+            SCNVector3(max.x, max.y, min.z),
+            SCNVector3(max.x, max.y, max.z),
+        ]
     }
 }
 
