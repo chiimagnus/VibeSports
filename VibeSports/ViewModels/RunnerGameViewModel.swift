@@ -175,6 +175,11 @@ final class RunnerGameViewModel: ObservableObject {
         pushCurrentControlMotion()
     }
 
+    func handleBoostModifierChanged(_ isPressed: Bool) {
+        keyboardDebugInputState.setBoostPressed(isPressed)
+        pushCurrentControlMotion()
+    }
+
     func resetKeyboardInput() {
         keyboardDebugInputState.reset()
         pushCurrentControlMotion()

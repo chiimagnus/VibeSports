@@ -47,20 +47,11 @@ struct VibeSportsApp: App {
                 .environmentObject(runnerCommands)
         }
         .modelContainer(modelContainer)
-        .commands {
-            DebugCommands(runnerCommands: runnerCommands)
-        }
-
-#if DEBUG
-        Window("Runner Animations", id: "runner-animations") {
-            RunnerAnimationDebugView()
+        
+        Settings {
+            RunnerSettingsView()
                 .environmentObject(debugTools)
+                .environmentObject(runnerCommands)
         }
-
-        Window("Runner Tuning", id: "runner-tuning") {
-            RunnerTuningDebugView()
-                .environmentObject(debugTools)
-        }
-#endif
     }
 }
