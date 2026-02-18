@@ -57,6 +57,7 @@ final class RunnerGameViewModel: ObservableObject {
         updateStrideLengthMetersPerStep(cadence.strideLengthMetersPerStep)
 
         poseStabilizer.configuration = poseStabilizer.configuration.withUpperBodyArmOverrides()
+        headSteeringSignal.configuration.minConfidence = 0.20
 
         cameraSession.objectWillChange
             .sink { [weak self] _ in
