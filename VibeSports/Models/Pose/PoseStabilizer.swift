@@ -68,13 +68,17 @@ struct PoseStabilizer: Sendable {
             var state = jointStates[name] ?? JointState()
 
             let confidence = measurement?.confidence ?? 0
-            let shouldTurnOn = confidence >= configuration.onConfidenceThreshold
-            let shouldTurnOff = confidence > 0 && confidence < configuration.offConfidenceThreshold
+            let onThreshold = configuration.resolvedOnConfidenceThreshold(for: name)
+            let offThreshold = configuration.resolvedOffConfidenceThreshold(for: name)
+            let holdDuration = configuration.resolvedHoldDuration(for: name)
+
+            let shouldTurnOn = confidence >= onThreshold
+            let shouldTurnOff = confidence > 0 && confidence < offThreshold
 
             if state.isVisible {
                 if shouldTurnOff {
                     // Allow hold window before hiding.
-                    if let lastSeenAt = state.lastSeenAt, now.timeIntervalSince(lastSeenAt) > configuration.holdDuration {
+                    if let lastSeenAt = state.lastSeenAt, now.timeIntervalSince(lastSeenAt) > holdDuration {
                         state.isVisible = false
                         state.filteredLocation = nil
                     }
@@ -106,7 +110,7 @@ struct PoseStabilizer: Sendable {
                 if
                     let filtered = state.filteredLocation,
                     let lastSeenAt = state.lastSeenAt,
-                    now.timeIntervalSince(lastSeenAt) <= configuration.holdDuration
+                    now.timeIntervalSince(lastSeenAt) <= holdDuration
                 {
                     // Ensure overlay keeps drawing while visible/held.
                     outputJoints[name] = PoseJoint(location: filtered, confidence: 1.0)
@@ -126,7 +130,8 @@ struct PoseStabilizer: Sendable {
         for (name, state) in jointStates {
             guard state.isVisible else { continue }
             guard let lastSeenAt = state.lastSeenAt else { continue }
-            guard now.timeIntervalSince(lastSeenAt) <= configuration.holdDuration else { continue }
+            let holdDuration = configuration.resolvedHoldDuration(for: name)
+            guard now.timeIntervalSince(lastSeenAt) <= holdDuration else { continue }
             guard let filtered = state.filteredLocation else { continue }
             outputJoints[name] = PoseJoint(location: filtered, confidence: 1.0)
         }
