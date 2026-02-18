@@ -29,6 +29,20 @@ struct PoseStabilizer: Sendable {
         func resolvedHoldDuration(for name: PoseJointName) -> TimeInterval {
             jointOverrides[name]?.holdDuration ?? holdDuration
         }
+
+        func withUpperBodyArmOverrides() -> Self {
+            var copy = self
+
+            let elbow = JointOverride(onConfidenceThreshold: 0.25, offConfidenceThreshold: 0.12, holdDuration: 0.40)
+            let wrist = JointOverride(onConfidenceThreshold: 0.20, offConfidenceThreshold: 0.10, holdDuration: 0.45)
+
+            copy.jointOverrides[.leftElbow] = elbow
+            copy.jointOverrides[.rightElbow] = elbow
+            copy.jointOverrides[.leftWrist] = wrist
+            copy.jointOverrides[.rightWrist] = wrist
+
+            return copy
+        }
     }
 
     var configuration = Configuration()

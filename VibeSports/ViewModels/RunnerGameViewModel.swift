@@ -55,6 +55,8 @@ final class RunnerGameViewModel: ObservableObject {
         let cadence = sceneRenderer.tuning.cadence
         updateStrideLengthMetersPerStep(cadence.strideLengthMetersPerStep)
 
+        poseStabilizer.configuration = poseStabilizer.configuration.withUpperBodyArmOverrides()
+
         cameraSession.objectWillChange
             .sink { [weak self] _ in
                 self?.objectWillChange.send()
