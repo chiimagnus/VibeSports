@@ -2,6 +2,59 @@ import XCTest
 @testable import VibeSports
 
 final class PoseStabilizerTests: XCTestCase {
+    func test_jointOverrideAllowsLowerConfidenceToTurnOn() {
+        let t0 = Date(timeIntervalSince1970: 0)
+        let lowConfidencePose = Pose(joints: [
+            .leftWrist: PoseJoint(location: .init(x: 0.5, y: 0.5), confidence: 0.22),
+        ])
+
+        var baseline = PoseStabilizer()
+        baseline.configuration.onConfidenceThreshold = 0.35
+        baseline.configuration.offConfidenceThreshold = 0.20
+        baseline.configuration.holdDuration = 0.20
+        baseline.configuration.smoothingAlpha = 1.0
+
+        XCTAssertNil(baseline.ingest(pose: lowConfidencePose, now: t0)?.joint(.leftWrist))
+
+        var overridden = PoseStabilizer()
+        overridden.configuration.onConfidenceThreshold = 0.35
+        overridden.configuration.offConfidenceThreshold = 0.20
+        overridden.configuration.holdDuration = 0.20
+        overridden.configuration.smoothingAlpha = 1.0
+        overridden.configuration.jointOverrides[.leftWrist] = .init(
+            onConfidenceThreshold: 0.20,
+            offConfidenceThreshold: 0.10,
+            holdDuration: 0.20
+        )
+
+        XCTAssertNotNil(overridden.ingest(pose: lowConfidencePose, now: t0)?.joint(.leftWrist))
+    }
+
+    func test_jointHoldOverrideExtendsHoldWindow() {
+        var stabilizer = PoseStabilizer()
+        stabilizer.configuration.onConfidenceThreshold = 0.0
+        stabilizer.configuration.offConfidenceThreshold = 0.0
+        stabilizer.configuration.holdDuration = 0.20
+        stabilizer.configuration.smoothingAlpha = 1.0
+        stabilizer.configuration.jointOverrides[.leftWrist] = .init(
+            onConfidenceThreshold: 0.0,
+            offConfidenceThreshold: 0.0,
+            holdDuration: 0.45
+        )
+
+        let t0 = Date(timeIntervalSince1970: 0)
+        let pose = Pose(joints: [
+            .leftWrist: PoseJoint(location: .init(x: 0.5, y: 0.5), confidence: 1.0),
+        ])
+        XCTAssertNotNil(stabilizer.ingest(pose: pose, now: t0)?.joint(.leftWrist))
+
+        let t1 = t0.addingTimeInterval(0.30)
+        XCTAssertNotNil(stabilizer.ingest(pose: nil, now: t1)?.joint(.leftWrist))
+
+        let t2 = t0.addingTimeInterval(0.50)
+        XCTAssertNil(stabilizer.ingest(pose: nil, now: t2)?.joint(.leftWrist))
+    }
+
     func test_hysteresisPreventsFlickerNearThreshold() {
         var stabilizer = PoseStabilizer()
         stabilizer.configuration.onConfidenceThreshold = 0.35
