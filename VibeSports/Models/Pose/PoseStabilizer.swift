@@ -3,12 +3,32 @@ import Foundation
 
 struct PoseStabilizer: Sendable {
     struct Configuration: Sendable, Equatable {
+        struct JointOverride: Sendable, Equatable {
+            var onConfidenceThreshold: Double
+            var offConfidenceThreshold: Double
+            var holdDuration: TimeInterval
+        }
+
         var onConfidenceThreshold: Double = 0.35
         var offConfidenceThreshold: Double = 0.20
         var holdDuration: TimeInterval = 0.20
 
         /// 0 = no smoothing, 1 = no inertia.
         var smoothingAlpha: Double = 0.35
+
+        var jointOverrides: [PoseJointName: JointOverride] = [:]
+
+        func resolvedOnConfidenceThreshold(for name: PoseJointName) -> Double {
+            jointOverrides[name]?.onConfidenceThreshold ?? onConfidenceThreshold
+        }
+
+        func resolvedOffConfidenceThreshold(for name: PoseJointName) -> Double {
+            jointOverrides[name]?.offConfidenceThreshold ?? offConfidenceThreshold
+        }
+
+        func resolvedHoldDuration(for name: PoseJointName) -> TimeInterval {
+            jointOverrides[name]?.holdDuration ?? holdDuration
+        }
     }
 
     var configuration = Configuration()
@@ -121,4 +141,3 @@ struct PoseStabilizer: Sendable {
         return CGPoint(x: x, y: y)
     }
 }
-
