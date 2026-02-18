@@ -4,6 +4,7 @@ struct SettingsSnapshot: Sendable, Equatable {
     var showPoseOverlay: Bool
     var mirrorPoseOverlay: Bool
     var poseStabilizationEnabled: Bool
+    var showPoseArmDebugOverlay: Bool
 }
 
 @MainActor
@@ -12,4 +13,5 @@ protocol SettingsRepository: AnyObject {
     func updateShowPoseOverlay(_ isEnabled: Bool) throws
     func updateMirrorPoseOverlay(_ isEnabled: Bool) throws
     func updatePoseStabilizationEnabled(_ isEnabled: Bool) throws
+    func updateShowPoseArmDebugOverlay(_ isEnabled: Bool) throws
 }

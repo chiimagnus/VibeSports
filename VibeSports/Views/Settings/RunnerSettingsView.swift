@@ -44,6 +44,9 @@ struct RunnerSettingsView: View {
             Section("Pose Processing") {
                 Toggle("Pose Stabilization", isOn: poseStabilizationBinding)
                     .disabled(!runnerCommands.isRunnerAttached)
+
+                Toggle("Arm Debug Overlay", isOn: armDebugOverlayBinding)
+                    .disabled(!runnerCommands.isRunnerAttached)
             }
         }
          .formStyle(.grouped)
@@ -105,6 +108,13 @@ struct RunnerSettingsView: View {
         Binding(
             get: { runnerCommands.poseStabilizationEnabled },
             set: { runnerCommands.setPoseStabilizationEnabled($0) }
+        )
+    }
+
+    private var armDebugOverlayBinding: Binding<Bool> {
+        Binding(
+            get: { runnerCommands.showPoseArmDebugOverlay },
+            set: { runnerCommands.setShowPoseArmDebugOverlay($0) }
         )
     }
 

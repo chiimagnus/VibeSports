@@ -132,12 +132,14 @@ struct RunnerGameView: View {
                                 PoseOverlayView(pose: pose, isMirroredHorizontally: viewModel.mirrorCamera)
                             }
 
-                            PoseArmDebugOverlay(
-                                rawPose: viewModel.latestPose,
-                                stabilizedPose: viewModel.poseStabilizationEnabled ? viewModel.stabilizedPose : nil,
-                                isStabilizationEnabled: viewModel.poseStabilizationEnabled
-                            )
-                            .padding(8)
+                            if viewModel.showPoseArmDebugOverlay {
+                                PoseArmDebugOverlay(
+                                    rawPose: viewModel.latestPose,
+                                    stabilizedPose: viewModel.poseStabilizationEnabled ? viewModel.stabilizedPose : nil,
+                                    isStabilizationEnabled: viewModel.poseStabilizationEnabled
+                                )
+                                .padding(8)
+                            }
                         }
                     }
                 }
@@ -183,6 +185,7 @@ struct RunnerGameView: View {
             showPoseOverlay: viewModel.showPoseOverlay,
             mirrorCamera: viewModel.mirrorCamera,
             poseStabilizationEnabled: viewModel.poseStabilizationEnabled,
+            showPoseArmDebugOverlay: viewModel.showPoseArmDebugOverlay,
             showWorldAxes: viewModel.showWorldAxes,
             showRunnerAxes: viewModel.showRunnerAxes,
             controlMode: viewModel.controlMode
@@ -195,6 +198,7 @@ struct RunnerGameView: View {
             updateShowPoseOverlay: { [weak vm] in vm?.updateShowPoseOverlay($0) },
             updateMirrorCamera: { [weak vm] in vm?.updateMirrorCamera($0) },
             updatePoseStabilizationEnabled: { [weak vm] in vm?.updatePoseStabilizationEnabled($0) },
+            updateShowPoseArmDebugOverlay: { [weak vm] in vm?.updateShowPoseArmDebugOverlay($0) },
             updateShowWorldAxes: { [weak vm] in vm?.updateShowWorldAxes($0) },
             updateShowRunnerAxes: { [weak vm] in vm?.updateShowRunnerAxes($0) },
             updateControlMode: { [weak vm] in vm?.updateControlMode($0) }

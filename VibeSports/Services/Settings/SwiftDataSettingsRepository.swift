@@ -7,6 +7,7 @@ final class SwiftDataSettingsRepository: SettingsRepository {
         static let showPoseOverlay = "runner.debug.showPoseOverlay"
         static let mirrorPoseOverlay = "runner.debug.mirrorPoseOverlay"
         static let poseStabilizationEnabled = "runner.debug.poseStabilizationEnabled"
+        static let showPoseArmDebugOverlay = "runner.debug.showPoseArmDebugOverlay"
     }
 
     private let modelContext: ModelContext
@@ -23,7 +24,8 @@ final class SwiftDataSettingsRepository: SettingsRepository {
         return SettingsSnapshot(
             showPoseOverlay: settings.showPoseOverlay,
             mirrorPoseOverlay: settings.mirrorPoseOverlay,
-            poseStabilizationEnabled: settings.poseStabilizationEnabled
+            poseStabilizationEnabled: settings.poseStabilizationEnabled,
+            showPoseArmDebugOverlay: settings.showPoseArmDebugOverlay
         )
     }
 
@@ -42,6 +44,12 @@ final class SwiftDataSettingsRepository: SettingsRepository {
     func updatePoseStabilizationEnabled(_ isEnabled: Bool) throws {
         let settings = try fetchOrCreate()
         settings.poseStabilizationEnabled = isEnabled
+        try modelContext.save()
+    }
+
+    func updateShowPoseArmDebugOverlay(_ isEnabled: Bool) throws {
+        let settings = try fetchOrCreate()
+        settings.showPoseArmDebugOverlay = isEnabled
         try modelContext.save()
     }
 
@@ -65,7 +73,8 @@ final class SwiftDataSettingsRepository: SettingsRepository {
             let seeded = AppSettings(
                 showPoseOverlay: legacyBool(forKey: LegacyKeys.showPoseOverlay) ?? false,
                 mirrorPoseOverlay: legacyBool(forKey: LegacyKeys.mirrorPoseOverlay) ?? false,
-                poseStabilizationEnabled: legacyBool(forKey: LegacyKeys.poseStabilizationEnabled) ?? true
+                poseStabilizationEnabled: legacyBool(forKey: LegacyKeys.poseStabilizationEnabled) ?? true,
+                showPoseArmDebugOverlay: legacyBool(forKey: LegacyKeys.showPoseArmDebugOverlay) ?? false
             )
             modelContext.insert(seeded)
             try modelContext.save()

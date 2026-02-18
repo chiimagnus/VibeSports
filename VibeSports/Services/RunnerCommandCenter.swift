@@ -7,6 +7,7 @@ final class RunnerCommandCenter: ObservableObject {
         var showPoseOverlay: Bool
         var mirrorCamera: Bool
         var poseStabilizationEnabled: Bool
+        var showPoseArmDebugOverlay: Bool
         var showWorldAxes: Bool
         var showRunnerAxes: Bool
         var controlMode: RunnerControlComposer.Mode
@@ -16,6 +17,7 @@ final class RunnerCommandCenter: ObservableObject {
         var updateShowPoseOverlay: (Bool) -> Void
         var updateMirrorCamera: (Bool) -> Void
         var updatePoseStabilizationEnabled: (Bool) -> Void
+        var updateShowPoseArmDebugOverlay: (Bool) -> Void
         var updateShowWorldAxes: (Bool) -> Void
         var updateShowRunnerAxes: (Bool) -> Void
         var updateControlMode: (RunnerControlComposer.Mode) -> Void
@@ -25,6 +27,7 @@ final class RunnerCommandCenter: ObservableObject {
     @Published private(set) var showPoseOverlay = false
     @Published private(set) var mirrorCamera = true
     @Published private(set) var poseStabilizationEnabled = true
+    @Published private(set) var showPoseArmDebugOverlay = false
     @Published private(set) var showWorldAxes = false
     @Published private(set) var showRunnerAxes = false
     @Published private(set) var controlMode: RunnerControlComposer.Mode = .mixed
@@ -46,6 +49,7 @@ final class RunnerCommandCenter: ObservableObject {
         showPoseOverlay = snapshot.showPoseOverlay
         mirrorCamera = snapshot.mirrorCamera
         poseStabilizationEnabled = snapshot.poseStabilizationEnabled
+        showPoseArmDebugOverlay = snapshot.showPoseArmDebugOverlay
         showWorldAxes = snapshot.showWorldAxes
         showRunnerAxes = snapshot.showRunnerAxes
         controlMode = snapshot.controlMode
@@ -64,6 +68,11 @@ final class RunnerCommandCenter: ObservableObject {
     func setPoseStabilizationEnabled(_ isEnabled: Bool) {
         poseStabilizationEnabled = isEnabled
         handlers?.updatePoseStabilizationEnabled(isEnabled)
+    }
+
+    func setShowPoseArmDebugOverlay(_ isEnabled: Bool) {
+        showPoseArmDebugOverlay = isEnabled
+        handlers?.updateShowPoseArmDebugOverlay(isEnabled)
     }
 
     func setShowWorldAxes(_ isEnabled: Bool) {

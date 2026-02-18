@@ -18,6 +18,7 @@ final class RunnerGameViewModel: ObservableObject {
     @Published private(set) var showPoseOverlay: Bool = false
     @Published private(set) var mirrorCamera: Bool = true
     @Published private(set) var poseStabilizationEnabled: Bool = true
+    @Published private(set) var showPoseArmDebugOverlay: Bool = false
     @Published private(set) var stabilizedPose: Pose?
 
     @Published private(set) var showWorldAxes: Bool = false
@@ -120,10 +121,12 @@ final class RunnerGameViewModel: ObservableObject {
             showPoseOverlay = settings.showPoseOverlay
             mirrorCamera = settings.mirrorPoseOverlay
             poseStabilizationEnabled = settings.poseStabilizationEnabled
+            showPoseArmDebugOverlay = settings.showPoseArmDebugOverlay
         } catch {
             showPoseOverlay = false
             mirrorCamera = true
             poseStabilizationEnabled = true
+            showPoseArmDebugOverlay = false
         }
     }
 
@@ -148,6 +151,13 @@ final class RunnerGameViewModel: ObservableObject {
         pushCurrentControlMotion()
         do {
             try settingsRepository.updatePoseStabilizationEnabled(isEnabled)
+        } catch {}
+    }
+
+    func updateShowPoseArmDebugOverlay(_ isEnabled: Bool) {
+        showPoseArmDebugOverlay = isEnabled
+        do {
+            try settingsRepository.updateShowPoseArmDebugOverlay(isEnabled)
         } catch {}
     }
 
