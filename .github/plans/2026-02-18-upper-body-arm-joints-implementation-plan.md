@@ -7,12 +7,12 @@
 **Non-goals（非目标）:**
 - 不替换 Apple Vision 的人体姿态模型、不引入第三方 ML 框架
 - 不在第一步就做人物分割/抠图（见文末【第二步】）
-- 不改变现有 `HeadSteeringSignal` 的门槛语义（避免转向输入失效）
+- 不更换 `HeadSteeringSignal` 的输入关节（仍基于鼻子+双肩），仅允许按需微调门槛参数
 
 **Approach（方案）:**
 - 现状：`PoseDetector` 输出原始关节点；`PoseStabilizer` 用统一阈值（默认 `on=0.35/off=0.20/hold=0.20`）决定“点亮/熄灭”；上半身特写时肘/腕置信度往往长期低于 `0.35`，导致永远点不亮。
 - 改进：为 `PoseStabilizer` 增加“按关节的阈值/保活覆盖（override）”，并在运行时对肘/腕采用更宽松的 `on/off/hold`（例如 `on≈0.18–0.25`、`off≈0.08–0.15`、`hold≈0.30–0.50s`）。
-- 可观测性：加一个轻量 Debug 读数（显示 raw pose 的肘/腕置信度 + stabilized 是否输出该点），用于快速验证“是 Vision 没给点，还是被阈值挡掉”。
+- 可观测性：加一个轻量 Debug 读数（显示 raw pose 的肘/腕置信度 + stabilized 是否输出该点），并通过开关控制显示，用于快速验证“是 Vision 没给点，还是被阈值挡掉”。
 
 **Acceptance（验收）:**
 - 在上半身构图中（不要求全身入镜），开启 `Pose Stabilization` 后，肘/腕点不再长期缺失，能在数百毫秒内“点亮并保持”（允许轻微抖动）。
@@ -108,6 +108,7 @@
   - 展示 `latestPose` 的 `.leftElbow/.rightElbow/.leftWrist/.rightWrist` raw confidence（没有则显示 `—`）
   - 展示 stabilized pose 是否包含该关节（有/无）
 - 显示条件建议：仅当 `showPoseOverlay == true` 时显示，避免干扰常规 UI。
+- 补充：建议再加一个独立开关（例如 `Arm Debug Overlay`）控制是否显示该面板，并持久化到设置。
 
 **Step 2: 验证**
 - 手动验证：运行 App，打开 `Pose Overlay`，确认读数随动作变化；并能区分“Vision 不给点（raw=—）”与“被阈值挡住（raw 有值但 stabilized 无点）”。
@@ -119,6 +120,14 @@
 - Run: `xcodebuild -project VibeSports.xcodeproj -scheme VibeSports -destination 'platform=macOS' build`
 - Run: `xcodebuild -project VibeSports.xcodeproj -scheme VibeSports -destination 'platform=macOS' test`
 - Expected: 全部通过
+
+---
+
+## 实施记录（已完成）
+
+- P1/P2 已落地：`PoseStabilizer` 支持按关节 override，并默认对肘/腕启用上半身 preset（更低 on/off + 更长 hold）。
+- P2 叠层已加开关：`Arm Debug Overlay` 可在 Settings 中打开/关闭，且持久化保存。
+- 额外调整（按需）：将 `HeadSteeringSignal.configuration.minConfidence` 下调（例如从 `0.35` 到 `0.20`），用于低光/噪点环境下仍能产生转向输入（不改变输入关节，仅调门槛）。
 
 ---
 
@@ -136,4 +145,3 @@
    - 复用 `VNSequenceRequestHandler` 或按帧率节流（你当前已有 20fps 处理间隔）。
    - 分割质量与速度折中（如 `.balanced` / `.fast`），优先保证实时性。
 5. 提供一个 Settings/Debug 开关（并持久化到 `SwiftDataSettingsRepository`），便于 A/B 对比与回退。
-

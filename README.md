@@ -28,6 +28,7 @@ like jumping jacks or squats—similar to fitness-tracking apps on phones, but o
 - Rendering: SceneKit (third-person forest chunks + heading-based navigation)
 - Control input: camera head sway / keyboard `WASD` / mixed
 - Settings persistence: SwiftData
+- Debug (optional): Arm joint confidence overlay
 
 More details: [business-logic.md](.github/docs/business-logic.md).
 
