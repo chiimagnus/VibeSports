@@ -6,6 +6,8 @@ struct HomeView: View {
     @Environment(\.dismissWindow) private var dismissWindow
     @EnvironmentObject private var navState: AppNavigationState
 
+    @State private var selectedKind: ExerciseKind? = nil
+
     var body: some View {
         NavigationSplitView {
             sidebar
@@ -15,10 +17,26 @@ struct HomeView: View {
         .navigationSplitViewStyle(.balanced)
         .navigationSplitViewColumnWidth(min: 240, ideal: 300, max: 360)
         .frame(minWidth: 900, minHeight: 600)
+        .onAppear {
+            if selectedKind == nil {
+                selectedKind = navState.selectedExerciseKind
+            }
+        }
+        .onChange(of: selectedKind) { _, newValue in
+            guard let newValue else { return }
+            guard navState.selectedExerciseKind != newValue else { return }
+            DispatchQueue.main.async {
+                navState.selectedExerciseKind = newValue
+            }
+        }
+        .onChange(of: navState.selectedExerciseKind) { _, newValue in
+            guard selectedKind != newValue else { return }
+            selectedKind = newValue
+        }
     }
 
     private var sidebar: some View {
-        List(selection: selectedKindBinding) {
+        List(selection: $selectedKind) {
             ForEach(ExerciseKind.allCases, id: \.self) { kind in
                 Label {
                     VStack(alignment: .leading, spacing: 2) {
@@ -65,26 +83,19 @@ struct HomeView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
+    private var effectiveSelectedKind: ExerciseKind {
+        selectedKind ?? navState.selectedExerciseKind
+    }
+
     private var calibrationPreview: some View {
         Group {
-            switch navState.selectedExerciseKind {
+            switch effectiveSelectedKind {
             case .running:
                 CalibrationSilhouettePreview(kind: .runningUpperBody)
             case .boxing:
                 CalibrationSilhouettePreview(kind: .boxingGuard)
             }
         }
-    }
-
-    private var selectedKindBinding: Binding<ExerciseKind?> {
-        Binding(
-            get: { navState.selectedExerciseKind },
-            set: { kind in
-                if let kind {
-                    navState.selectedExerciseKind = kind
-                }
-            }
-        )
     }
 
     private func subtitle(for kind: ExerciseKind) -> String {
@@ -106,6 +117,7 @@ struct HomeView: View {
     }
 
     private func activate(_ kind: ExerciseKind) {
+        selectedKind = kind
         navState.selectedExerciseKind = kind
         openWindow(id: "exercise")
         DispatchQueue.main.async { dismissWindow(id: "home") }
