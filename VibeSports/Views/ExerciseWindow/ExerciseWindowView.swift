@@ -65,6 +65,12 @@ struct ExerciseWindowView: View {
             attachDebugTools()
             startIfNeeded()
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification, object: window)) { notification in
+            guard let window else { return }
+            guard let closingWindow = notification.object as? NSWindow, closingWindow === window else { return }
+            viewModel.stopIfNeeded()
+            DispatchQueue.main.async { openWindow(id: "home") }
+        }
         .onChange(of: debugTools.runnerTuning.cadence) { _, cadence in
             viewModel.updateStrideLengthMetersPerStep(cadence.strideLengthMetersPerStep)
         }
@@ -129,21 +135,6 @@ struct ExerciseWindowView: View {
 
     private var topRightHUD: some View {
         VStack(alignment: .trailing, spacing: 10) {
-            Button("End") {
-                endTapped()
-            }
-            .buttonStyle(.bordered)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background {
-                Capsule()
-                    .fill(.ultraThinMaterial)
-                    .overlay {
-                        Capsule()
-                            .strokeBorder(.white.opacity(0.10))
-                    }
-            }
-
             cameraPreview
         }
     }
@@ -261,14 +252,6 @@ struct ExerciseWindowView: View {
         didStart = true
         viewModel.updateSelectedExerciseKind(navState.selectedExerciseKind)
         viewModel.startTapped()
-    }
-
-    private func endTapped() {
-        viewModel.stopTapped()
-        openWindow(id: "home")
-        DispatchQueue.main.async {
-            window?.performClose(nil)
-        }
     }
 }
 
