@@ -47,4 +47,4 @@ Views ↔ ViewModels ↔ Models ↔ Services, with dependencies flowing top-down
 
 ## License
 
-This project is licensed under the [AGPL-3.0 License](https://github.com/chiimagnus/chiimagnus.github.io/blob/main/LICENSE).
+This project is licensed under the [AGPL-3.0 License](LICENSE).
