@@ -6,9 +6,7 @@ struct HomeView: View {
     @Environment(\.dismissWindow) private var dismissWindow
     @EnvironmentObject private var navState: AppNavigationState
 
-    @State private var selectedKind: ExerciseKind = .running
-    @State private var lastTapKind: ExerciseKind?
-    @State private var lastTapAt: Date?
+    @State private var selectedKind: ExerciseKind? = nil
 
     var body: some View {
         NavigationSplitView {
@@ -20,12 +18,21 @@ struct HomeView: View {
         .navigationSplitViewColumnWidth(min: 240, ideal: 300, max: 360)
         .frame(minWidth: 900, minHeight: 600)
         .onAppear {
-            selectedKind = navState.selectedExerciseKind
+            if selectedKind == nil {
+                selectedKind = navState.selectedExerciseKind
+            }
+        }
+        .onChange(of: selectedKind) { _, newValue in
+            guard let newValue else { return }
+            guard navState.selectedExerciseKind != newValue else { return }
+            DispatchQueue.main.async {
+                navState.selectedExerciseKind = newValue
+            }
         }
     }
 
     private var sidebar: some View {
-        List {
+        List(selection: $selectedKind) {
             ForEach(ExerciseKind.allCases, id: \.self) { kind in
                 Label {
                     VStack(alignment: .leading, spacing: 2) {
@@ -38,11 +45,8 @@ struct HomeView: View {
                 } icon: {
                     Image(systemName: symbolName(for: kind))
                 }
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    handleTap(kind)
-                }
-                .listRowBackground(selectedKind == kind ? Color.accentColor.opacity(0.18) : Color.clear)
+                .tag(kind)
+                .simultaneousGesture(TapGesture(count: 2).onEnded { activate(kind) })
             }
         }
         .navigationTitle("VibeSports")
@@ -56,6 +60,10 @@ struct HomeView: View {
         }
     }
 
+    private var effectiveSelectedKind: ExerciseKind {
+        selectedKind ?? navState.selectedExerciseKind
+    }
+
     private var detail: some View {
         VStack(alignment: .leading, spacing: 12) {
             calibrationPreview
@@ -66,7 +74,7 @@ struct HomeView: View {
             HStack {
                 Spacer()
                 Button("Start") {
-                    activate(selectedKind)
+                    activate(effectiveSelectedKind)
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
@@ -77,7 +85,7 @@ struct HomeView: View {
     }
 
     private var calibrationPreview: some View {
-        switch selectedKind {
+        switch effectiveSelectedKind {
         case .running:
             CalibrationSilhouettePreview(kind: .runningUpperBody)
         case .boxing:
@@ -101,23 +109,6 @@ struct HomeView: View {
         case .boxing:
             return "figure.boxing"
         }
-    }
-
-    private func handleTap(_ kind: ExerciseKind) {
-        let now = Date()
-
-        selectedKind = kind
-        navState.selectedExerciseKind = kind
-
-        if lastTapKind == kind, let lastTapAt, now.timeIntervalSince(lastTapAt) < 0.35 {
-            lastTapKind = nil
-            self.lastTapAt = nil
-            activate(kind)
-            return
-        }
-
-        lastTapKind = kind
-        lastTapAt = now
     }
 
     private func activate(_ kind: ExerciseKind) {
