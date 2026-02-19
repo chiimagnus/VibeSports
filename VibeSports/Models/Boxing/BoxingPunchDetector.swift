@@ -2,12 +2,6 @@ import CoreGraphics
 import Foundation
 
 struct BoxingPunchDetector: Sendable, Equatable {
-    struct Calibration: Sendable, Equatable {
-        var leftNeutralWrist: CGPoint
-        var rightNeutralWrist: CGPoint
-        var shoulderDistance: Double
-    }
-
     var configuration = BoxingConfiguration()
 
     private enum Hand: Sendable, Equatable {
@@ -40,13 +34,13 @@ struct BoxingPunchDetector: Sendable, Equatable {
         pendingEvents.removeAll(keepingCapacity: true)
     }
 
-    mutating func ingest(pose: Pose?, calibration: Calibration, now: Date) -> BoxingPunchEvent? {
+    mutating func ingest(pose: Pose?, baseline: BoxingCalibrationBaseline, now: Date) -> BoxingPunchEvent? {
         if !pendingEvents.isEmpty {
             return pendingEvents.removeFirst()
         }
 
-        let leftEvent = ingestHand(.left, pose: pose, calibration: calibration, now: now)
-        let rightEvent = ingestHand(.right, pose: pose, calibration: calibration, now: now)
+        let leftEvent = ingestHand(.left, pose: pose, baseline: baseline, now: now)
+        let rightEvent = ingestHand(.right, pose: pose, baseline: baseline, now: now)
 
         if let leftEvent { pendingEvents.append(leftEvent) }
         if let rightEvent { pendingEvents.append(rightEvent) }
@@ -57,7 +51,7 @@ struct BoxingPunchDetector: Sendable, Equatable {
     private mutating func ingestHand(
         _ hand: Hand,
         pose: Pose?,
-        calibration: Calibration,
+        baseline: BoxingCalibrationBaseline,
         now: Date
     ) -> BoxingPunchEvent? {
         let jointName: PoseJointName
@@ -65,10 +59,10 @@ struct BoxingPunchDetector: Sendable, Equatable {
         switch hand {
         case .left:
             jointName = .leftWrist
-            neutralWrist = calibration.leftNeutralWrist
+            neutralWrist = baseline.leftNeutralWrist
         case .right:
             jointName = .rightWrist
-            neutralWrist = calibration.rightNeutralWrist
+            neutralWrist = baseline.rightNeutralWrist
         }
 
         let wrist = pose?.joint(jointName)
@@ -81,7 +75,7 @@ struct BoxingPunchDetector: Sendable, Equatable {
             return nil
         }
 
-        let shoulderDistance = max(0.0001, calibration.shoulderDistance)
+        let shoulderDistance = max(0.0001, baseline.shoulderDistance)
         let delta = CGPoint(
             x: wrist!.location.x - neutralWrist.x,
             y: wrist!.location.y - neutralWrist.y
