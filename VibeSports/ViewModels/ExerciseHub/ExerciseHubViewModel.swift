@@ -6,7 +6,7 @@ final class ExerciseHubViewModel: ObservableObject {
     let cameraSession: CameraSession
     let runningSession: RunningSessionViewModel
 
-    @Published private(set) var sessionState: ExerciseSessionState = .idle(selectedKind: .running, runningCalibrationMode: nil)
+    @Published private(set) var sessionState: ExerciseSessionState = .idle(selectedKind: .running)
     @Published private(set) var latestPose: Pose?
     @Published private(set) var boxingSession: BoxingSessionViewModel?
 
@@ -24,10 +24,6 @@ final class ExerciseHubViewModel: ObservableObject {
 
     var selectedExerciseKind: ExerciseKind {
         sessionState.kind
-    }
-
-    var selectedRunningCalibrationMode: RunningCalibrationMode? {
-        sessionState.rawRunningCalibrationMode
     }
 
     init(dependencies: AppDependencies) {
@@ -58,13 +54,7 @@ final class ExerciseHubViewModel: ObservableObject {
 
     func updateSelectedExerciseKind(_ kind: ExerciseKind) {
         guard sessionState.isIdle else { return }
-        sessionState = .idle(selectedKind: kind, runningCalibrationMode: sessionState.rawRunningCalibrationMode)
-    }
-
-    func updateRunningCalibrationMode(_ mode: RunningCalibrationMode) {
-        guard sessionState.isIdle else { return }
-        guard sessionState.kind == .running else { return }
-        sessionState = .idle(selectedKind: .running, runningCalibrationMode: mode)
+        sessionState = .idle(selectedKind: kind)
     }
 
     func startTapped() {
@@ -74,12 +64,11 @@ final class ExerciseHubViewModel: ObservableObject {
         switch kind {
         case .running:
             boxingSession = nil
-            guard let mode = sessionState.rawRunningCalibrationMode else { return }
-            runningSession.start(mode: mode)
-            sessionState = .calibrating(kind: .running, runningCalibrationMode: mode)
+            runningSession.start()
+            sessionState = .calibrating(kind: .running)
         case .boxing:
             boxingSession = BoxingSessionViewModel(clock: clock)
-            sessionState = .calibrating(kind: kind, runningCalibrationMode: sessionState.rawRunningCalibrationMode)
+            sessionState = .calibrating(kind: kind)
         }
 
         Task { [weak self] in
@@ -92,14 +81,14 @@ final class ExerciseHubViewModel: ObservableObject {
         guard !sessionState.isIdle else { return }
         let selectedKind = sessionState.kind
         stop()
-        sessionState = .idle(selectedKind: selectedKind, runningCalibrationMode: sessionState.rawRunningCalibrationMode)
+        sessionState = .idle(selectedKind: selectedKind)
     }
 
     func stopIfNeeded() {
         guard !sessionState.isIdle else { return }
         let selectedKind = sessionState.kind
         stop()
-        sessionState = .idle(selectedKind: selectedKind, runningCalibrationMode: sessionState.rawRunningCalibrationMode)
+        sessionState = .idle(selectedKind: selectedKind)
     }
 
     private func stop() {
@@ -195,12 +184,8 @@ final class ExerciseHubViewModel: ObservableObject {
         }
 
         runningSession.ingest(rawPose: pose, controlPose: poseForControl)
-        if
-            case .running = runningSession.state,
-            case .calibrating(let kind, _) = sessionState,
-            kind == .running
-        {
-            sessionState = .running(kind: .running, runningCalibrationMode: sessionState.runningCalibrationMode)
+        if case .running = runningSession.state, case .calibrating(let kind) = sessionState, kind == .running {
+            sessionState = .running(kind: .running)
         }
     }
 }

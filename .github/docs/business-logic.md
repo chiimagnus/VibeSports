@@ -9,8 +9,8 @@ VibeSports 是一款面向桌面场景的 macOS 原生运动游戏：用户在�
 - 需要短时、低门槛运动打断久坐的人群
 
 核心体验：
-- 在主窗口选择运动场景（Running / Boxing）
-- 开始前必须校准（Running：上半身/全身；Boxing：上半身护脸姿势）
+- 在 Home 窗口选择运动场景（Running / Boxing），并点击 Start 进入 Exercise 窗口
+- Exercise 窗口开始前必须校准（Running：上半身；Boxing：上半身护脸姿势）
 - 动作被实时识别并转成可观测的运动反馈与调试信号
 - 会话结束后立即回到工作状态
 
@@ -24,12 +24,12 @@ VibeSports 是一款面向桌面场景的 macOS 原生运动游戏：用户在�
 
 ### 1) 运动场景选择与会话启动/结束
 - 用户价值：快速进入/退出运动状态，不打断主任务节奏
-- 触发方式：用户在主窗口选择场景并点击 Start / End
-- 输入：用户操作、摄像头权限状态、（Running）校准模式选择
-- 输出：会话状态切换（Idle → Calibrating → Running）
+- 触发方式：用户在 Home 选择场景并点击 Start 进入 Exercise；关闭 Exercise 窗口返回 Home
+- 输入：用户操作、摄像头权限状态
+- 输出：会话状态切换（Idle → Calibrating → Running）与窗口切换（Home ↔ Exercise）
 - 关键边界与失败方式：
   - 未授权摄像头时无法进入 Running/Boxing，用户会看到权限提示
-  - 未选择 Running 校准模式时不可开始（强制选择）
+  - Home 不占用摄像头资源；摄像头仅在 Exercise 窗口启动
 
 ### 2) 姿态识别与动作信号提取
 - 用户价值：让“真实动作”成为游戏输入
@@ -45,7 +45,7 @@ VibeSports 是一款面向桌面场景的 macOS 原生运动游戏：用户在�
 - 输入：Pose + 时间窗口
 - 输出：进度（0~1）、失败原因（缺失关节/不稳定/太近/太远等）、baseline（例如肩宽尺度）
 - 关键边界与失败方式：
-  - Running：必须由用户选择校准模式（上半身/全身），且通过后才能开始驱动 3D 场景
+  - Running：必须校准通过（上半身）才能开始驱动 3D 场景
   - Boxing：必须通过上半身护脸（guard）校准，且通过后才能开始识别拳法事件
 
 ### 4) Running：指标计算与 3D 场景驱动
@@ -79,17 +79,17 @@ VibeSports 是一款面向桌面场景的 macOS 原生运动游戏：用户在�
 ## 核心用户流程（User Journeys）
 
 ### Journey A：Running（主流程）
-1. 用户在主窗口选择 Running，并选择校准模式（上半身/全身）。
-2. 点击 Start 后进入校准态；校准通过后进入 Running。
+1. 用户在 Home 选择 Running 并点击 Start 进入 Exercise。
+2. Exercise 打开后进入校准态；校准通过后进入 Running。
 3. 姿态被持续估计并转为运动指标与控制信号。
 4. 3D 场景按速度与转向实时响应，用户获得即时反馈。
-5. 用户点击 End，会话停止并释放资源。
+5. 用户关闭 Exercise 窗口，会话停止并释放资源。
 
 ### Journey B：Boxing（主流程）
-1. 用户在主窗口选择 Boxing。
-2. 点击 Start 后进入上半身护脸校准；通过后开始识别拳法事件。
+1. 用户在 Home 选择 Boxing 并点击 Start 进入 Exercise。
+2. Exercise 打开后进入上半身护脸校准；通过后开始识别拳法事件。
 3. 用户在全屏摄像头预览里查看计数/事件与调试信息。
-4. 点击 End 结束会话并释放资源。
+4. 关闭 Exercise 窗口结束会话并释放资源。
 
 ### Journey C：摄像头受限时的替代流程
 1. 用户开始会话但摄像头不可用或不稳定。
@@ -106,8 +106,8 @@ VibeSports 是一款面向桌面场景的 macOS 原生运动游戏：用户在�
 
 ```mermaid
 flowchart LR
-  A[Idle 待机] --> B[选择场景 Running/Boxing]
-  B --> C[点击 Start]
+  A[Home 待机] --> B[选择场景 Running/Boxing]
+  B --> C[点击 Start 进入 Exercise]
   C --> D{摄像头可用?}
   D -->|否| E[提示权限/降级输入]
   D -->|是| F[校准 Calibrating]
@@ -115,7 +115,7 @@ flowchart LR
   F -->|未通过| F
   E --> H[键盘或混合输入（Running 调试）]
   H --> G
-  G --> I[用户点击 End]
+  G --> I[用户关闭 Exercise 窗口]
   I --> J[停止检测并释放资源]
   J --> A
 ```
@@ -123,7 +123,7 @@ flowchart LR
 ## 业务规则与约束（Rules & Constraints）
 
 - 会话状态遵循 Idle → Calibrating → Running，结束会话必须释放摄像头资源。
-- Running 必须在开始前选择校准模式（上半身/全身），并且必须校准通过才能进入 Running。
+- Running 必须校准通过（上半身）才能进入 Running。
 - Boxing 必须校准通过（上半身护脸/guard）才能开始识别拳法事件。
 - 姿态不可用时不应阻塞主线程，应降级为可恢复状态。
 - 场景速度与动画节奏应同源，避免“速度快慢与动画不一致”。
@@ -153,7 +153,8 @@ flowchart LR
 ## 入口索引（Entry Index）
 
 - `VibeSports/Views/VibeSportsApp.swift`
-- `VibeSports/Views/ExerciseHub/ExerciseHubView.swift`
-- `VibeSports/ViewModels/ExerciseHub/ExerciseHubViewModel.swift`
+- `VibeSports/Views/Home/HomeView.swift`
+- `VibeSports/Views/ExerciseWindow/ExerciseWindowView.swift`
+- `VibeSports/ViewModels/Navigation/AppNavigationState.swift`
 - `VibeSports/ViewModels/Running/RunningSessionViewModel.swift`
 - `VibeSports/ViewModels/Boxing/BoxingSessionViewModel.swift`

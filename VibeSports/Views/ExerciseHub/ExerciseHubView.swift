@@ -53,8 +53,8 @@ struct ExerciseHubView: View {
             .padding(16)
 
             if viewModel.sessionState.kind == .running && !viewModel.sessionState.isIdle {
-                if case .calibrating(let mode, let progress, let message) = viewModel.runningSession.state {
-                    RunningCalibrationOverlayView(mode: mode, progress: progress, message: message)
+                if case .calibrating(let progress, let message) = viewModel.runningSession.state {
+                    RunningCalibrationOverlayView(progress: progress, message: message)
                 }
             }
 
@@ -130,9 +130,9 @@ struct ExerciseHubView: View {
             switch viewModel.sessionState {
             case .idle:
                 Text("Camera on")
-            case .calibrating(let kind, _):
+            case .calibrating(let kind):
                 Text("\(kind.title) • Calibrating…")
-            case .running(let kind, _):
+            case .running(let kind):
                 if kind == .running {
                     Text("Running • \(String(format: "%.1f", viewModel.runningSession.metrics.speedKilometersPerHour)) km/h")
                 } else {
@@ -164,7 +164,7 @@ struct ExerciseHubView: View {
                             }
 
                             if viewModel.showPoseArmDebugOverlay {
-                                PoseArmDebugOverlay(
+                                PoseArmDebugOverlayView(
                                     rawPose: viewModel.latestPose,
                                     stabilizedPose: viewModel.poseStabilizationEnabled ? viewModel.stabilizedPose : nil,
                                     isStabilizationEnabled: viewModel.poseStabilizationEnabled
@@ -202,21 +202,11 @@ struct ExerciseHubView: View {
             }
             .pickerStyle(.segmented)
 
-            if viewModel.selectedExerciseKind == .running {
-                Picker("Calibration", selection: runningCalibrationModeBinding) {
-                    ForEach(RunningCalibrationMode.allCases, id: \.self) { mode in
-                        Text(mode.title).tag(Optional(mode))
-                    }
-                }
-                .pickerStyle(.segmented)
-            }
-
             Button("Start") {
                 viewModel.startTapped()
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .disabled(isStartDisabled)
         }
         .padding(20)
         .background {
@@ -237,29 +227,9 @@ struct ExerciseHubView: View {
         )
     }
 
-    private var runningCalibrationModeBinding: Binding<RunningCalibrationMode?> {
-        Binding(
-            get: { viewModel.selectedRunningCalibrationMode },
-            set: { newValue in
-                guard let newValue else { return }
-                viewModel.updateRunningCalibrationMode(newValue)
-            }
-        )
-    }
-
-    private var isStartDisabled: Bool {
-        if viewModel.selectedExerciseKind == .running {
-            return viewModel.selectedRunningCalibrationMode == nil
-        }
-        return false
-    }
-
     private var idleSubtitle: String {
         switch viewModel.selectedExerciseKind {
         case .running:
-            if viewModel.selectedRunningCalibrationMode == nil {
-                return "Select a calibration mode before starting."
-            }
             return "Press Start to calibrate, then use pose detection to drive the 3D scene."
         case .boxing:
             return "Press Start to calibrate and begin Boxing."
@@ -294,42 +264,4 @@ struct ExerciseHubView: View {
 
 #Preview {
     ExerciseHubView(dependencies: .preview())
-}
-
-private struct PoseArmDebugOverlay: View {
-    let rawPose: Pose?
-    let stabilizedPose: Pose?
-    let isStabilizationEnabled: Bool
-
-    private let joints: [(PoseJointName, String)] = [
-        (.leftElbow, "LE"),
-        (.rightElbow, "RE"),
-        (.leftWrist, "LW"),
-        (.rightWrist, "RW"),
-    ]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Arms • stab \(isStabilizationEnabled ? "on" : "off")")
-                .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                .foregroundStyle(.white.opacity(0.9))
-
-            ForEach(joints, id: \.0) { joint, label in
-                let raw = confidenceString(in: rawPose, joint: joint)
-                let out = stabilizedPose?.joint(joint) != nil ? "1" : "0"
-                Text("\(label) raw \(raw) out \(out)")
-                    .font(.system(size: 10, weight: .regular, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.9))
-            }
-        }
-        .padding(6)
-        .background(.black.opacity(0.45))
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .allowsHitTesting(false)
-    }
-
-    private func confidenceString(in pose: Pose?, joint: PoseJointName) -> String {
-        guard let c = pose?.joint(joint)?.confidence else { return "—" }
-        return String(format: "%.2f", c)
-    }
 }

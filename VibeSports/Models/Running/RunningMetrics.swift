@@ -44,15 +44,10 @@ struct RunningMetrics: Sendable, Equatable {
     private var lastQuality: Double = 0
     private var previousPositions: [PoseJointName: CGPoint] = [:]
 
-    private(set) var calibrationMode: RunningCalibrationMode = .upperBody
     private var calibrationShoulderDistance: Double?
 
     private(set) var isCloseUpMode = false
     private(set) var shoulderDistance: Double?
-
-    mutating func setCalibrationMode(_ mode: RunningCalibrationMode) {
-        calibrationMode = mode
-    }
 
     mutating func setCalibrationBaselineShoulderDistance(_ shoulderDistance: Double?) {
         calibrationShoulderDistance = shoulderDistance.map { max(0.0001, $0) }
@@ -65,7 +60,6 @@ struct RunningMetrics: Sendable, Equatable {
         lastUpdateTime = nil
         lastQuality = 0
         previousPositions.removeAll(keepingCapacity: true)
-        calibrationMode = .upperBody
         calibrationShoulderDistance = nil
         isCloseUpMode = false
         shoulderDistance = nil
@@ -144,20 +138,10 @@ struct RunningMetrics: Sendable, Equatable {
         let dt = max(0.001, deltaTime)
         let scale = effectiveScale()
 
-        let candidateJoints: [PoseJointName]
-        switch calibrationMode {
-        case .upperBody:
-            candidateJoints = [
-                .leftWrist, .rightWrist,
-                .leftElbow, .rightElbow,
-            ]
-        case .fullBody:
-            candidateJoints = [
-                .leftWrist, .rightWrist,
-                .leftKnee, .rightKnee,
-                .leftAnkle, .rightAnkle,
-            ]
-        }
+        let candidateJoints: [PoseJointName] = [
+            .leftWrist, .rightWrist,
+            .leftElbow, .rightElbow,
+        ]
 
         var totalVelocity: Double = 0
         var count: Double = 0
@@ -181,8 +165,6 @@ struct RunningMetrics: Sendable, Equatable {
 
         if isCloseUpMode {
             threshold *= configuration.closeUpMovementThresholdMultiplier
-        } else if pose.joint(.leftKnee) == nil && pose.joint(.rightKnee) == nil {
-            threshold *= 0.7
         }
 
         let averageVelocity = totalVelocity / count

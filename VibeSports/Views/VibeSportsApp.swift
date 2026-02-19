@@ -9,6 +9,7 @@ struct VibeSportsApp: App {
     private let dependencies: AppDependencies
     @StateObject private var debugTools = DebugToolsStore()
     @StateObject private var runnerCommands = RunnerCommandCenter()
+    @StateObject private var navState = AppNavigationState()
 
     init() {
         do {
@@ -41,10 +42,17 @@ struct VibeSportsApp: App {
     }
 
     var body: some Scene {
-        WindowGroup {
-            ExerciseHubView(dependencies: dependencies)
+        WindowGroup(id: "home") {
+            HomeView(dependencies: dependencies)
+                .environmentObject(navState)
+        }
+        .modelContainer(modelContainer)
+
+        WindowGroup(id: "exercise") {
+            ExerciseWindowView(dependencies: dependencies)
                 .environmentObject(debugTools)
                 .environmentObject(runnerCommands)
+                .environmentObject(navState)
         }
         .modelContainer(modelContainer)
         
