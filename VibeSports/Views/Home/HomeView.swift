@@ -1,12 +1,10 @@
-import AppKit
 import SwiftUI
 
 struct HomeView: View {
     let dependencies: AppDependencies
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.dismissWindow) private var dismissWindow
     @EnvironmentObject private var navState: AppNavigationState
-
-    @State private var window: NSWindow?
 
     var body: some View {
         HStack(spacing: 16) {
@@ -18,14 +16,7 @@ struct HomeView: View {
         }
         .padding(18)
         .background(.black.opacity(0.06))
-        .overlay {
-            WindowReferenceReader { window in
-                self.window = window
-            }
-            .frame(width: 0, height: 0)
-            .allowsHitTesting(false)
-        }
-            .frame(minWidth: 900, minHeight: 600)
+        .frame(minWidth: 900, minHeight: 600)
     }
 
     private var leftPanel: some View {
@@ -103,9 +94,7 @@ struct HomeView: View {
     private func activate(_ kind: ExerciseKind) {
         navState.selectedExerciseKind = kind
         openWindow(id: "exercise")
-        DispatchQueue.main.async {
-            window?.performClose(nil)
-        }
+        DispatchQueue.main.async { dismissWindow(id: "home") }
     }
 }
 
