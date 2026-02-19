@@ -51,7 +51,7 @@ struct HomeView: View {
                 }
                 .tag(kind)
                 .contentShape(Rectangle())
-                .highPriorityGesture(TapGesture(count: 2).onEnded {
+                .simultaneousGesture(TapGesture(count: 2).onEnded {
                     activate(kind)
                 })
             }
