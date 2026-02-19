@@ -10,6 +10,11 @@ struct AppDependencies {
     var makeRunnerSceneRenderer: @MainActor () -> RunnerSceneRenderer
 
     @MainActor
+    func makeRunningSessionViewModel() -> RunningSessionViewModel {
+        RunningSessionViewModel(clock: clock, sceneRenderer: makeRunnerSceneRenderer())
+    }
+
+    @MainActor
     static func live(modelContext: ModelContext) -> AppDependencies {
         AppDependencies(
             clock: SystemClock(),

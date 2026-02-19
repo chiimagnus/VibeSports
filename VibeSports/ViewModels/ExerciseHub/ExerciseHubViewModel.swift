@@ -4,10 +4,9 @@ import Foundation
 @MainActor
 final class ExerciseHubViewModel: ObservableObject {
     let cameraSession: CameraSession
-    let sceneRenderer: RunnerSceneRenderer
+    let runningSession: RunningSessionViewModel
 
-    @Published private(set) var sessionState: ExerciseSessionState = .idle(selectedKind: .running)
-    @Published private(set) var metrics: RunningMetricsSnapshot
+    @Published private(set) var sessionState: ExerciseSessionState = .idle(selectedKind: .running, runningCalibrationMode: .upperBody)
     @Published private(set) var latestPose: Pose?
     @Published private(set) var boxingSession: BoxingSessionViewModel?
 
@@ -17,18 +16,9 @@ final class ExerciseHubViewModel: ObservableObject {
     @Published private(set) var showPoseArmDebugOverlay: Bool = false
     @Published private(set) var stabilizedPose: Pose?
 
-    @Published private(set) var showWorldAxes: Bool = false
-    @Published private(set) var showRunnerAxes: Bool = false
-    @Published private(set) var controlMode: RunnerControlComposer.Mode = .mixed
-
     private let clock: any Clock
     private let settingsRepository: any SettingsRepository
-
-    private var runningMetrics = RunningMetrics()
     private var poseStabilizer = PoseStabilizer()
-    private var headSteeringSignal = HeadSteeringSignal()
-    private var keyboardDebugInputState = KeyboardDebugInputState()
-    private var controlComposer = RunnerControlComposer(mode: .mixed)
 
     private var cancellables: Set<AnyCancellable> = []
 
@@ -40,24 +30,12 @@ final class ExerciseHubViewModel: ObservableObject {
         self.clock = dependencies.clock
         self.settingsRepository = dependencies.settingsRepository
         self.cameraSession = dependencies.makeCameraSession()
-        self.sceneRenderer = dependencies.makeRunnerSceneRenderer()
-        self.metrics = RunningMetricsSnapshot(
-            poseDetected: false,
-            movementQualityPercent: 0,
-            cadenceStepsPerSecond: 0,
-            cadenceStepsPerMinute: 0,
-            speedMetersPerSecond: 0,
-            speedKilometersPerHour: 0,
-            steps: 0,
-            isCloseUpMode: false,
-            shoulderDistance: nil
-        )
+        self.runningSession = dependencies.makeRunningSessionViewModel()
 
-        let cadence = sceneRenderer.tuning.cadence
+        let cadence = runningSession.sceneRenderer.tuning.cadence
         updateStrideLengthMetersPerStep(cadence.strideLengthMetersPerStep)
 
         poseStabilizer.configuration = poseStabilizer.configuration.withUpperBodyArmOverrides()
-        headSteeringSignal.configuration.minConfidence = 0.20
 
         cameraSession.objectWillChange
             .sink { [weak self] _ in
@@ -76,7 +54,13 @@ final class ExerciseHubViewModel: ObservableObject {
 
     func updateSelectedExerciseKind(_ kind: ExerciseKind) {
         guard sessionState.isIdle else { return }
-        sessionState = .idle(selectedKind: kind)
+        sessionState = .idle(selectedKind: kind, runningCalibrationMode: sessionState.runningCalibrationMode)
+    }
+
+    func updateRunningCalibrationMode(_ mode: RunningCalibrationMode) {
+        guard sessionState.isIdle else { return }
+        guard sessionState.kind == .running else { return }
+        sessionState = .idle(selectedKind: .running, runningCalibrationMode: mode)
     }
 
     func startTapped() {
@@ -86,10 +70,12 @@ final class ExerciseHubViewModel: ObservableObject {
         switch kind {
         case .running:
             boxingSession = nil
-            sessionState = .running(kind: kind)
+            let mode = sessionState.runningCalibrationMode
+            runningSession.start(mode: mode)
+            sessionState = .calibrating(kind: .running, runningCalibrationMode: mode)
         case .boxing:
             boxingSession = BoxingSessionViewModel(clock: clock)
-            sessionState = .calibrating(kind: kind)
+            sessionState = .calibrating(kind: kind, runningCalibrationMode: sessionState.runningCalibrationMode)
         }
 
         Task { [weak self] in
@@ -102,35 +88,22 @@ final class ExerciseHubViewModel: ObservableObject {
         guard !sessionState.isIdle else { return }
         let selectedKind = sessionState.kind
         stop()
-        sessionState = .idle(selectedKind: selectedKind)
+        sessionState = .idle(selectedKind: selectedKind, runningCalibrationMode: sessionState.runningCalibrationMode)
     }
 
     func stopIfNeeded() {
         guard !sessionState.isIdle else { return }
         let selectedKind = sessionState.kind
         stop()
-        sessionState = .idle(selectedKind: selectedKind)
+        sessionState = .idle(selectedKind: selectedKind, runningCalibrationMode: sessionState.runningCalibrationMode)
     }
 
     private func stop() {
         cameraSession.stop()
-        sceneRenderer.reset()
-        runningMetrics.reset()
+        runningSession.stop()
         boxingSession = nil
-        keyboardDebugInputState.reset()
         latestPose = nil
         stabilizedPose = nil
-        metrics = RunningMetricsSnapshot(
-            poseDetected: false,
-            movementQualityPercent: 0,
-            cadenceStepsPerSecond: 0,
-            cadenceStepsPerMinute: 0,
-            speedMetersPerSecond: 0,
-            speedKilometersPerHour: 0,
-            steps: 0,
-            isCloseUpMode: false,
-            shoulderDistance: nil
-        )
     }
 
     private func loadSettings() {
@@ -166,7 +139,7 @@ final class ExerciseHubViewModel: ObservableObject {
         poseStabilizationEnabled = isEnabled
         poseStabilizer.reset()
         stabilizedPose = nil
-        pushCurrentControlMotion()
+        runningSession.pushCurrentControlMotion()
         do {
             try settingsRepository.updatePoseStabilizationEnabled(isEnabled)
         } catch {}
@@ -179,44 +152,24 @@ final class ExerciseHubViewModel: ObservableObject {
         } catch {}
     }
 
-    func updateShowWorldAxes(_ isEnabled: Bool) {
-        showWorldAxes = isEnabled
-        sceneRenderer.setShowWorldAxes(isEnabled)
-    }
-
-    func updateShowRunnerAxes(_ isEnabled: Bool) {
-        showRunnerAxes = isEnabled
-        sceneRenderer.setShowRunnerAxes(isEnabled)
-    }
-
-    func updateControlMode(_ mode: RunnerControlComposer.Mode) {
-        controlMode = mode
-        controlComposer.mode = mode
-        pushCurrentControlMotion()
-    }
-
     func handleKeyDown(_ key: KeyboardDebugInputState.Key) {
-        keyboardDebugInputState.keyDown(key)
-        pushCurrentControlMotion()
+        runningSession.handleKeyDown(key)
     }
 
     func handleKeyUp(_ key: KeyboardDebugInputState.Key) {
-        keyboardDebugInputState.keyUp(key)
-        pushCurrentControlMotion()
+        runningSession.handleKeyUp(key)
     }
 
     func handleBoostModifierChanged(_ isPressed: Bool) {
-        keyboardDebugInputState.setBoostPressed(isPressed)
-        pushCurrentControlMotion()
+        runningSession.handleBoostModifierChanged(isPressed)
     }
 
     func resetKeyboardInput() {
-        keyboardDebugInputState.reset()
-        pushCurrentControlMotion()
+        runningSession.resetKeyboardInput()
     }
 
     func updateStrideLengthMetersPerStep(_ strideLengthMetersPerStep: Double) {
-        runningMetrics.configuration.strideLengthMetersPerStep = max(0, strideLengthMetersPerStep)
+        runningSession.updateStrideLengthMetersPerStep(strideLengthMetersPerStep)
     }
 
     private func handlePose(_ pose: Pose?) {
@@ -233,44 +186,17 @@ final class ExerciseHubViewModel: ObservableObject {
         guard !sessionState.isIdle else { return }
         if sessionState.kind == .boxing {
             boxingSession?.ingest(pose: poseForControl)
-            sceneRenderer.setMotion(.zero)
+            runningSession.sceneRenderer.setMotion(.zero)
             return
         }
 
-        let snapshot = runningMetrics.ingest(pose: pose, now: clock.now)
-        metrics = snapshot
-        sceneRenderer.setMotion(makeMotion(from: snapshot, pose: poseForControl))
-    }
-
-    private func makeMotion(from snapshot: RunningMetricsSnapshot, pose: Pose?) -> RunnerMotion {
-        let cameraInput = RunnerControlInput(
-            turnInput: headSteeringSignal.turnInput(from: pose),
-            forwardInput: snapshot.speedMetersPerSecond > 0.05 ? 1 : 0
-        )
-        let keyboardInput = keyboardDebugInputState.controlInput
-        let controlInput = controlComposer.compose(
-            cameraInput: cameraInput,
-            keyboardInput: keyboardInput
-        )
-
-        return RunnerMotion(
-            speedMetersPerSecond: snapshot.speedMetersPerSecond,
-            cadenceStepsPerSecond: snapshot.cadenceStepsPerSecond,
-            cadenceStepsPerMinute: snapshot.cadenceStepsPerMinute,
-            forwardInput: controlInput.forwardInput,
-            turnInput: controlInput.turnInput,
-            headingYaw: 0
-        )
-    }
-
-    private func pushCurrentControlMotion() {
-        guard sessionState.kind == .running else {
-            sceneRenderer.setMotion(.zero)
-            return
+        runningSession.ingest(rawPose: pose, controlPose: poseForControl)
+        if
+            case .running = runningSession.state,
+            case .calibrating(let kind, _) = sessionState,
+            kind == .running
+        {
+            sessionState = .running(kind: .running, runningCalibrationMode: sessionState.runningCalibrationMode)
         }
-
-        let poseForControl = poseStabilizationEnabled ? stabilizedPose : latestPose
-        let motion = makeMotion(from: metrics, pose: poseForControl)
-        sceneRenderer.setMotion(motion)
     }
 }

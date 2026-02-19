@@ -27,7 +27,7 @@ struct ExerciseHubView: View {
                     Color.black.ignoresSafeArea()
                 }
             } else {
-                RunnerSceneView(renderer: viewModel.sceneRenderer)
+                RunnerSceneView(renderer: viewModel.runningSession.sceneRenderer)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .ignoresSafeArea()
             }
@@ -58,14 +58,14 @@ struct ExerciseHubView: View {
         }
         .frame(minWidth: 900, minHeight: 600)
         .onAppear {
-            debugTools.attach(sceneRenderer: viewModel.sceneRenderer)
+            debugTools.attach(sceneRenderer: viewModel.runningSession.sceneRenderer)
             runnerCommands.attach(
                 snapshot: runnerCommandSnapshot,
                 handlers: makeRunnerCommandHandlers()
             )
             viewModel.updateStrideLengthMetersPerStep(debugTools.runnerTuning.cadence.strideLengthMetersPerStep)
-            viewModel.updateShowWorldAxes(viewModel.showWorldAxes)
-            viewModel.updateShowRunnerAxes(viewModel.showRunnerAxes)
+            viewModel.runningSession.updateShowWorldAxes(viewModel.runningSession.showWorldAxes)
+            viewModel.runningSession.updateShowRunnerAxes(viewModel.runningSession.showRunnerAxes)
         }
         .onChange(of: debugTools.runnerTuning.cadence) { _, cadence in
             viewModel.updateStrideLengthMetersPerStep(
@@ -76,7 +76,7 @@ struct ExerciseHubView: View {
             runnerCommands.apply(snapshot: snapshot)
         }
         .onDisappear {
-            debugTools.detach(sceneRenderer: viewModel.sceneRenderer)
+            debugTools.detach(sceneRenderer: viewModel.runningSession.sceneRenderer)
             runnerCommands.detach()
             viewModel.resetKeyboardInput()
             viewModel.stopIfNeeded()
@@ -91,7 +91,7 @@ struct ExerciseHubView: View {
                 statusText
                     .foregroundStyle(.secondary)
                     .font(.subheadline)
-                Text("Control: \(viewModel.controlMode.debugTitle)")
+                Text("Control: \(viewModel.runningSession.controlMode.debugTitle)")
                     .foregroundStyle(.secondary)
                     .font(.caption)
             }
@@ -124,11 +124,11 @@ struct ExerciseHubView: View {
             switch viewModel.sessionState {
             case .idle:
                 Text("Camera on")
-            case .calibrating(let kind):
+            case .calibrating(let kind, _):
                 Text("\(kind.title) • Calibrating…")
-            case .running(let kind):
+            case .running(let kind, _):
                 if kind == .running {
-                    Text("Running • \(String(format: "%.1f", viewModel.metrics.speedKilometersPerHour)) km/h")
+                    Text("Running • \(String(format: "%.1f", viewModel.runningSession.metrics.speedKilometersPerHour)) km/h")
                 } else {
                     Text("\(kind.title) • Running")
                 }
@@ -236,9 +236,9 @@ struct ExerciseHubView: View {
             mirrorCamera: viewModel.mirrorCamera,
             poseStabilizationEnabled: viewModel.poseStabilizationEnabled,
             showPoseArmDebugOverlay: viewModel.showPoseArmDebugOverlay,
-            showWorldAxes: viewModel.showWorldAxes,
-            showRunnerAxes: viewModel.showRunnerAxes,
-            controlMode: viewModel.controlMode
+            showWorldAxes: viewModel.runningSession.showWorldAxes,
+            showRunnerAxes: viewModel.runningSession.showRunnerAxes,
+            controlMode: viewModel.runningSession.controlMode
         )
     }
 
@@ -249,9 +249,9 @@ struct ExerciseHubView: View {
             updateMirrorCamera: { [weak vm] in vm?.updateMirrorCamera($0) },
             updatePoseStabilizationEnabled: { [weak vm] in vm?.updatePoseStabilizationEnabled($0) },
             updateShowPoseArmDebugOverlay: { [weak vm] in vm?.updateShowPoseArmDebugOverlay($0) },
-            updateShowWorldAxes: { [weak vm] in vm?.updateShowWorldAxes($0) },
-            updateShowRunnerAxes: { [weak vm] in vm?.updateShowRunnerAxes($0) },
-            updateControlMode: { [weak vm] in vm?.updateControlMode($0) }
+            updateShowWorldAxes: { [weak vm] in vm?.runningSession.updateShowWorldAxes($0) },
+            updateShowRunnerAxes: { [weak vm] in vm?.runningSession.updateShowRunnerAxes($0) },
+            updateControlMode: { [weak vm] in vm?.runningSession.updateControlMode($0) }
         )
     }
 }
