@@ -90,6 +90,8 @@ final class RunningSessionViewModel: ObservableObject {
 
     func start(mode: RunningCalibrationMode) {
         runningMetrics.reset()
+        runningMetrics.setCalibrationMode(mode)
+        runningMetrics.setCalibrationBaselineShoulderDistance(nil)
         keyboardDebugInputState.reset()
         latestControlPose = nil
 
@@ -139,7 +141,8 @@ final class RunningSessionViewModel: ObservableObject {
             switch mode {
             case .upperBody:
                 let out = upperBodyCalibration.ingest(pose: controlPose, now: now)
-                if out.baseline != nil {
+                if let baseline = out.baseline {
+                    runningMetrics.setCalibrationBaselineShoulderDistance(baseline.shoulderDistance)
                     state = .running(mode: mode)
                     return
                 }
@@ -147,7 +150,8 @@ final class RunningSessionViewModel: ObservableObject {
 
             case .fullBody:
                 let out = fullBodyCalibration.ingest(pose: controlPose, now: now)
-                if out.baseline != nil {
+                if let baseline = out.baseline {
+                    runningMetrics.setCalibrationBaselineShoulderDistance(baseline.shoulderDistance)
                     state = .running(mode: mode)
                     return
                 }
@@ -195,4 +199,3 @@ final class RunningSessionViewModel: ObservableObject {
         )
     }
 }
-

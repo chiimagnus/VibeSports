@@ -44,8 +44,19 @@ struct RunningMetrics: Sendable, Equatable {
     private var lastQuality: Double = 0
     private var previousPositions: [PoseJointName: CGPoint] = [:]
 
+    private(set) var calibrationMode: RunningCalibrationMode = .upperBody
+    private var calibrationShoulderDistance: Double?
+
     private(set) var isCloseUpMode = false
     private(set) var shoulderDistance: Double?
+
+    mutating func setCalibrationMode(_ mode: RunningCalibrationMode) {
+        calibrationMode = mode
+    }
+
+    mutating func setCalibrationBaselineShoulderDistance(_ shoulderDistance: Double?) {
+        calibrationShoulderDistance = shoulderDistance.map { max(0.0001, $0) }
+    }
 
     mutating func reset() {
         cadenceModel = CadenceModel()
@@ -54,6 +65,8 @@ struct RunningMetrics: Sendable, Equatable {
         lastUpdateTime = nil
         lastQuality = 0
         previousPositions.removeAll(keepingCapacity: true)
+        calibrationMode = .upperBody
+        calibrationShoulderDistance = nil
         isCloseUpMode = false
         shoulderDistance = nil
     }
@@ -75,8 +88,10 @@ struct RunningMetrics: Sendable, Equatable {
         let smoothedQuality = (1 - configuration.smoothingAlpha) * lastQuality + configuration.smoothingAlpha * rawQuality
         lastQuality = smoothedQuality
 
+        let scale = effectiveScale()
+
         cadenceModel.configuration = configuration.cadenceConfiguration
-        if let stepEvent = stepDetector.ingest(pose: pose, movementQuality: smoothedQuality, now: now) {
+        if let stepEvent = stepDetector.ingest(pose: pose, movementQuality: smoothedQuality, scale: scale, now: now) {
             cadenceModel.ingestStep(
                 now: now,
                 intervalSincePreviousStep: stepEvent.intervalSincePreviousStep
@@ -127,11 +142,22 @@ struct RunningMetrics: Sendable, Equatable {
         }
 
         let dt = max(0.001, deltaTime)
+        let scale = effectiveScale()
 
-        let candidateJoints: [PoseJointName] = [
-            .leftWrist, .rightWrist,
-            .leftKnee, .rightKnee
-        ]
+        let candidateJoints: [PoseJointName]
+        switch calibrationMode {
+        case .upperBody:
+            candidateJoints = [
+                .leftWrist, .rightWrist,
+                .leftElbow, .rightElbow,
+            ]
+        case .fullBody:
+            candidateJoints = [
+                .leftWrist, .rightWrist,
+                .leftKnee, .rightKnee,
+                .leftAnkle, .rightAnkle,
+            ]
+        }
 
         var totalVelocity: Double = 0
         var count: Double = 0
@@ -141,8 +167,8 @@ struct RunningMetrics: Sendable, Equatable {
             let current = joint.location
 
             if let previous = previousPositions[jointName] {
-                let vx = Double((current.x - previous.x) / dt)
-                let vy = Double((current.y - previous.y) / dt)
+                let vx = Double((current.x - previous.x) / dt) / scale
+                let vy = Double((current.y - previous.y) / dt) / scale
                 totalVelocity += abs(vx) + abs(vy)
                 count += 1
             }
@@ -162,5 +188,9 @@ struct RunningMetrics: Sendable, Equatable {
         let averageVelocity = totalVelocity / count
         let normalized = min(1, averageVelocity / max(0.0001, threshold))
         return pow(normalized, 1.5)
+    }
+
+    private func effectiveScale() -> Double {
+        max(0.0001, calibrationShoulderDistance ?? shoulderDistance ?? 1.0)
     }
 }
