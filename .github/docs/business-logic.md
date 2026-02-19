@@ -9,7 +9,7 @@ VibeSports 是一款面向桌面场景的 macOS 原生运动游戏：用户在�
 - 需要短时、低门槛运动打断久坐的人群
 
 核心体验：
-- 在 Home 窗口选择运动场景（Running / Boxing），并双击进入 Exercise 窗口
+- 在 Home 窗口选择运动场景（Running / Boxing），并点击 Start 进入 Exercise 窗口
 - Exercise 窗口开始前必须校准（Running：上半身；Boxing：上半身护脸姿势）
 - 动作被实时识别并转成可观测的运动反馈与调试信号
 - 会话结束后立即回到工作状态
@@ -24,7 +24,7 @@ VibeSports 是一款面向桌面场景的 macOS 原生运动游戏：用户在�
 
 ### 1) 运动场景选择与会话启动/结束
 - 用户价值：快速进入/退出运动状态，不打断主任务节奏
-- 触发方式：用户在 Home 选择场景并双击进入 Exercise；在 Exercise 点击 End 返回 Home
+- 触发方式：用户在 Home 选择场景并点击 Start 进入 Exercise；关闭 Exercise 窗口返回 Home
 - 输入：用户操作、摄像头权限状态
 - 输出：会话状态切换（Idle → Calibrating → Running）与窗口切换（Home ↔ Exercise）
 - 关键边界与失败方式：
@@ -79,17 +79,17 @@ VibeSports 是一款面向桌面场景的 macOS 原生运动游戏：用户在�
 ## 核心用户流程（User Journeys）
 
 ### Journey A：Running（主流程）
-1. 用户在 Home 选择 Running 并双击进入 Exercise。
+1. 用户在 Home 选择 Running 并点击 Start 进入 Exercise。
 2. Exercise 打开后进入校准态；校准通过后进入 Running。
 3. 姿态被持续估计并转为运动指标与控制信号。
 4. 3D 场景按速度与转向实时响应，用户获得即时反馈。
-5. 用户点击 End，会话停止并释放资源。
+5. 用户关闭 Exercise 窗口，会话停止并释放资源。
 
 ### Journey B：Boxing（主流程）
-1. 用户在 Home 选择 Boxing 并双击进入 Exercise。
+1. 用户在 Home 选择 Boxing 并点击 Start 进入 Exercise。
 2. Exercise 打开后进入上半身护脸校准；通过后开始识别拳法事件。
 3. 用户在全屏摄像头预览里查看计数/事件与调试信息。
-4. 点击 End 结束会话并释放资源。
+4. 关闭 Exercise 窗口结束会话并释放资源。
 
 ### Journey C：摄像头受限时的替代流程
 1. 用户开始会话但摄像头不可用或不稳定。
@@ -107,7 +107,7 @@ VibeSports 是一款面向桌面场景的 macOS 原生运动游戏：用户在�
 ```mermaid
 flowchart LR
   A[Home 待机] --> B[选择场景 Running/Boxing]
-  B --> C[双击进入 Exercise]
+  B --> C[点击 Start 进入 Exercise]
   C --> D{摄像头可用?}
   D -->|否| E[提示权限/降级输入]
   D -->|是| F[校准 Calibrating]
@@ -115,7 +115,7 @@ flowchart LR
   F -->|未通过| F
   E --> H[键盘或混合输入（Running 调试）]
   H --> G
-  G --> I[用户点击 End]
+  G --> I[用户关闭 Exercise 窗口]
   I --> J[停止检测并释放资源]
   J --> A
 ```

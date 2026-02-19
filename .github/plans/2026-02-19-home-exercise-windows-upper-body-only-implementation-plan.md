@@ -2,11 +2,16 @@
 
 > 执行方式：建议使用 `executing-plans` 按批次实现与验收，并按 Task 原子化提交（Conventional Commits，subject 以 `taskN - ` 开头）。
 
+**Status（状态）**
+- ✅ Completed（2026-02-19）
+- 最终交互以“Home 侧边栏选择 + 右侧 Start 按钮启动”为准（不在 List row 上做双击手势，避免单击选择被延迟）。
+- Exercise 结束以“关闭窗口”作为唯一出口（不再提供 End 按钮）；关闭后自动回到 Home。
+
 **Goal（目标）**
 - 主窗口变为 **Home**：只做模式选择（Running / Boxing）+ 右侧“校准轮廓示意预览”（不占用相机）。
-- Home：**单击**切换模式并更新预览；**双击**进入对应 **Exercise Window**。
-- Exercise Window：打开后**自动开相机并立刻进入校准**（无 Start）；点击 **End** 后窗口自关，并**自动回到 Home**。
-- 同一时间只允许 1 个 Exercise Window（再次双击只会聚焦同一个窗口实例）。
+- Home：**单击**切换模式并更新预览；点击 **Start** 进入对应 **Exercise Window**。
+- Exercise Window：打开后**自动开相机并立刻进入校准**（无 Start）；用户**关闭窗口**后结束会话并**自动回到 Home**。
+- 同一时间只允许 1 个 Exercise Window（重复启动只会聚焦同一个窗口实例）。
 - **彻底删除 Running 的全身能力**：删除全身校准/模式/识别分支与 UI 入口，只保留上半身校准与现有跑步体验回归。
 
 **Non-goals（非目标）**
@@ -19,14 +24,14 @@
   - `WindowGroup(id: "home")`：Home 选择页
   - `WindowGroup(id: "exercise")`：运动窗口（Running/Boxing）
 - 用共享的 `AppNavigationState`（`ObservableObject`）在 Home 与 Exercise 之间传递“当前选择的运动模式”。
-- 通过 `openWindow(id:)` 打开目标窗口；通过 AppKit 关闭当前窗口（`NSApp.keyWindow?.performClose(nil)`），实现“进入运动时隐藏 Home / End 回 Home”。
+- 通过 `openWindow(id:)` / `dismissWindow(id:)` 做窗口切换，实现“进入运动时隐藏 Home / 关闭运动窗回 Home”。
 - Running 删除 full-body 路径：移除 `FullBodyCalibration`、移除 `RunningCalibrationMode.fullBody`，并把 Running 校准固定为上半身。
 
 **Acceptance（验收）**
 - 交互：
-  - Home：单击 Running/Boxing 会切换右侧轮廓预览；双击会进入运动窗口，并且 Home 自动关闭。
-  - Exercise Window：打开后立刻开始相机与校准；点击 End 会停止会话、关闭窗口，并自动回到 Home。
-  - 同一时间只存在一个 Exercise Window（重复双击不会多开）。
+  - Home：单击 Running/Boxing 会切换右侧轮廓预览；点击 Start 会进入运动窗口，并且 Home 自动关闭。
+  - Exercise Window：打开后立刻开始相机与校准；关闭窗口会停止会话并自动回到 Home。
+  - 同一时间只存在一个 Exercise Window（重复启动不会多开）。
 - Running：
   - 工程与 UI 中不再出现 “Full Body / 全身” 选项；
   - 无 `FullBodyCalibration` / `.fullBody` 分支残留（代码与文档均删除/改写）。
@@ -97,7 +102,7 @@
 
 **Step 1: 实现功能**
 - 在 `VibeSportsApp` 增加 `@StateObject private var navState = AppNavigationState()`
-- 把当前默认 `WindowGroup { ExerciseHubView(...) }` 拆成：
+- 把**原先**默认 `WindowGroup { ExerciseHubView(...) }` 拆成：
   - `WindowGroup(id: "home") { HomeView(dependencies: dependencies) ... .environmentObject(navState) }`
   - `WindowGroup(id: "exercise") { ExerciseWindowView(dependencies: dependencies) ... .environmentObject(navState) }`
 - 保持 Settings scene 不变，并确保 `debugTools` / `runnerCommands` 注入到两个窗口视图（ExerciseWindow 需要；Home 可选）。
@@ -111,37 +116,38 @@
 
 ---
 
-### Task 4: 实现 Home 视图（单击切换、双击进入运动窗口）
+### Task 4: 实现 Home 视图（单击切换、Start 进入运动窗口）
 
 **Files**
 - Create: `VibeSports/Views/Home/HomeView.swift`
-- Modify（或删除/迁移）: `VibeSports/Views/ExerciseHub/ExerciseHubView.swift`（Home 不再使用它作为主窗口）
+- Modify（或删除/迁移）: `VibeSports/Views/ExerciseHub/ExerciseHubView.swift`（Home 不再使用它作为主窗口；此处为历史路径）
 
 **Step 1: 实现功能**
 - Home UI 最小可用（MVP）：
-  - 左侧/上方：Running 与 Boxing 两个可点击卡片（selected 状态高亮）
+  - 左侧：sidebar `List`（macOS 原生 selection）
   - 右侧：轮廓示意预览（复用现有“校准轮廓绘制”逻辑；不占用相机）
-  - 提示文案：单击选择，双击开始
+  - 底部：Start 按钮（启动 Exercise window）
 - 交互：
   - 单击：`navState.selectedExerciseKind = ...`
-  - 双击：先 `openWindow(id: "exercise")`，然后关闭 Home 当前窗口（用 AppKit：`NSApp.keyWindow?.performClose(nil)`；注意用 `DispatchQueue.main.async` 避免与 window open 同步冲突）
+  - Start：`openWindow(id: "exercise")`，然后关闭 Home（`dismissWindow(id: "home")`）
+  - 约束：不要在 sidebar 的 `List` row 上实现“双击启动”手势，否则会导致单击 selection 需要等待双击判定超时（详情见后续 issue/PR 讨论）
 
 **Step 2: 验证（手动）**
 - Run app：
   - 单击 Running/Boxing：右侧预览变化
-  - 双击：进入 Exercise window，Home 自动关闭
+  - 点击 Start：进入 Exercise window，Home 自动关闭
 
 **Step 3: 原子提交**
-- `git commit -m "feat: task4 - add home view with mode preview and double-click start"`
+- `git commit -m "feat: task4 - add home view with mode preview and start button"`
 
 ---
 
-### Task 5: 实现 Exercise Window（自动开相机并校准，无 Start；End 回 Home）
+### Task 5: 实现 Exercise Window（自动开相机并校准，无 Start；关闭回 Home）
 
 **Files**
 - Create: `VibeSports/Views/ExerciseWindow/ExerciseWindowView.swift`
 - （可选）Create: `VibeSports/ViewModels/ExerciseWindow/ExerciseWindowViewModel.swift`（若需要把“返回 Home”逻辑从 View 抽离）
-- Modify: `VibeSports/ViewModels/ExerciseHub/ExerciseHubViewModel.swift`（如果要复用它作为 orchestrator：增加 “start(kind:)” 入口，去掉对 Home 选择 UI 的依赖）
+- Modify: `VibeSports/ViewModels/ExerciseHub/ExerciseHubViewModel.swift`（如仍复用它作为 orchestrator；否则可跳过）
 
 **Step 1: 实现功能**
 - ExerciseWindowView 根据 `navState.selectedExerciseKind` 决定展示内容：
@@ -150,22 +156,20 @@
 - 自动启动：
   - `onAppear`：设置 kind → 调用 start（启动 camera + 进入 calibrating）
   - 保证不会重复 start（例如只在 idle 时 start）
-- End：
-  - 先 stop 会话（释放相机资源）
-  - `openWindow(id: "home")`
-  - 关闭当前 exercise window（`NSApp.keyWindow?.performClose(nil)` 或捕获该 window 进行关闭）
+- 结束：
+  - 用户关闭 exercise window 时：先 stop 会话（释放相机资源），再打开/恢复 Home window
 - 单实例：
   - 依赖 `WindowGroup(id:"exercise")` 的 id（系统会复用同一窗口）
 
 **Step 2: 验证（手动）**
-- 从 Home 双击进入 Running/Boxing：
+- 从 Home 点击 Start 进入 Running/Boxing：
   - Exercise window 打开后立即请求相机并进入校准
-- 点击 End：
-  - Exercise window 关闭
+- 关闭 exercise window：
+  - 会话停止并释放相机资源
   - 自动回到 Home window
 
 **Step 3: 原子提交**
-- `git commit -m "feat: task5 - add exercise window auto-start and return home"`
+- `git commit -m "feat: task5 - add exercise window auto-start and return home on close"`
 
 ---
 
@@ -200,8 +204,8 @@
 - （可选）Modify: `.github/plans/2026-02-19-boxing-running-calibration-structure-implementation-plan.md`（标注“running full-body 已移除/被新计划替代”）
 
 **Step 1: 实现功能**
-- README：描述 Home/Exercise 双窗口与自动校准；明确 Running 仅上半身
-- business-logic：更新用户旅程与流程图（Home → Exercise；End → Home），移除 full-body 相关词汇
+- README：描述 Home/Exercise 双窗口与自动校准；明确 Running 仅上半身；说明“关闭 Exercise window 结束并回到 Home”
+- business-logic：更新用户旅程与流程图（Home → Exercise；关闭 → Home），移除 full-body 相关词汇
 
 **Step 2: 验证**
 - 人工检查：路径/入口索引正确
@@ -218,14 +222,13 @@
 - Run: `xcodebuild -project VibeSports.xcodeproj -scheme VibeSports -destination 'platform=macOS' test`
 - 手动验证清单：
   - Home 不占用相机（打开 Home 不应触发相机权限/指示灯）
-  - 双击 Running/Boxing 能进入 Exercise window 并自动校准
-  - End 后回到 Home
+  - 点击 Start 能进入 Exercise window 并自动校准
+  - 关闭 Exercise window 后回到 Home
   - Running 3D 场景与调试开关回归正常（Pose overlay / Mirror / Stabilization / Keyboard）
 
 ---
 
 ## 不确定项（执行前最后确认）
 
-1. Exercise window 的标题与大小（Running/Boxing 是否不同 window size，是否需要固定最小尺寸？）
-2. 双击行为是否需要同时支持 “Enter/Space 快捷键启动”？（如需要，补一个 Task 做键盘导航。）
-
+1. Exercise window 的标题与大小（Running/Boxing 是否不同 window size，是否需要固定最小尺寸？）【已确认：不需要】
+2. 是否需要支持 Enter/Space 快捷键启动？（如需要，补一个 Task 做键盘导航。）【已确认：不需要】

@@ -2,7 +2,7 @@
 
 ## 项目概览
 
-VibeSports 是一个 macOS 原生的「摄像头跑步游戏」：用户开始会话后，摄像头采集视频帧 → Apple Vision 姿态估计 → 计算速度/步数/热量 → 驱动 SceneKit 无限场景渲染。UI 使用 SwiftUI；业务与状态按 MVVM 组织；事件流/异步用 Combine；设置持久化用 SwiftData。会话通常围绕 `Idle/Running/Stopped` 状态切换，结束会话需停止检测并释放摄像头资源。当前工程配置为 **macOS 14+ / Swift 6**。
+VibeSports 是一个 macOS 原生的「摄像头运动游戏」：用户开始会话后，摄像头采集视频帧 → Apple Vision 姿态估计 → 计算速度/步数/热量/出拳事件 → 驱动 SceneKit 无限场景渲染（Running）或 Debug 预览（Boxing）。UI 使用 SwiftUI；业务与状态按 MVVM 组织；事件流/异步用 Combine；设置持久化用 SwiftData。会话通常围绕 `Idle/Calibrating/Running/Stopped` 状态切换，结束会话需停止检测并释放摄像头资源。当前工程配置为 **macOS 14+ / Swift 6**。
 
 ## 项目结构与模块组织
 
@@ -33,7 +33,8 @@ VibeSports/Services/FeatureX/
 ## 入口与依赖注入
 
 - App 入口：`VibeSports/Views/VibeSportsApp.swift`
-- 根视图：`VibeSports/Views/ExerciseHub/ExerciseHubView.swift`
+- Home 窗口根视图：`VibeSports/Views/Home/HomeView.swift`
+- Exercise 窗口根视图：`VibeSports/Views/ExerciseWindow/ExerciseWindowView.swift`
 - 依赖装配：`VibeSports/Services/AppDependencies.swift`（集中创建 Service，并注入到 ViewModel）
 
 保持依赖“自上而下”流动：View 创建/持有 ViewModel；ViewModel 只依赖协议（或最小必要类型）；Service 不反向依赖 UI 层。
@@ -48,7 +49,7 @@ VibeSports/Services/FeatureX/
 - 姿态检测：`VibeSports/Services/PoseDetector.swift` 与 `VibeSports/Models/Pose/`
 - 摄像头采集：`VibeSports/Services/CameraSession.swift`
 - 3D 渲染：`VibeSports/Services/Renderer/` 与 `VibeSports/Views/Running/RunnerSceneView.swift`
-- 运动指标：`VibeSports/Models/Running/` 与 `VibeSports/ViewModels/ExerciseHub/ExerciseHubViewModel.swift`
+- 运动指标：`VibeSports/Models/Running/` 与 `VibeSports/ViewModels/Running/RunningSessionViewModel.swift`
 
 ## 代码风格与命名规范
 

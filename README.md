@@ -1,7 +1,7 @@
 # VibeSports 🏃🥊
 
 VibeSports is a macOS-native “camera exercise game” prototype (Running + Boxing):
-choose a mode in the Home window → open the Exercise window → calibrate → capture camera frames → estimate body pose with Apple Vision →
+choose a mode in the Home window → click Start → open the Exercise window → calibrate → capture camera frames → estimate body pose with Apple Vision →
 compute movement signals / speed / steps / punches →
 drive a third-person SceneKit forest world (Running) or a full-screen camera debug UI (Boxing).
 
@@ -32,6 +32,7 @@ like jumping jacks or squats—similar to fitness-tracking apps on phones, but o
   - Running: must pass upper-body calibration to start
   - Boxing: must pass upper-body guard calibration to start punch detection
 - Debug (optional): pose overlay + arm joint confidence overlay
+- Ending a session: close the Exercise window (the Home window will return)
 
 More details: [business-logic.md](.github/docs/business-logic.md).
 
