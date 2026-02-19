@@ -57,12 +57,13 @@ struct HomeView: View {
     }
 
     private var detail: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            GroupBox("Calibration Preview") {
-                calibrationPreview
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding(12)
-            }
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Calibration Preview")
+                .font(.headline)
+                .foregroundStyle(.secondary)
+
+            calibrationPreview
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             Text("Tip: Home doesn’t use the camera. The exercise window will request camera access.")
                 .font(.footnote)
@@ -73,13 +74,11 @@ struct HomeView: View {
     }
 
     private var calibrationPreview: some View {
-        Group {
-            switch selectedKind {
-            case .running:
-                CalibrationSilhouettePreview(kind: .runningUpperBody)
-            case .boxing:
-                CalibrationSilhouettePreview(kind: .boxingGuard)
-            }
+        switch selectedKind {
+        case .running:
+            CalibrationSilhouettePreview(kind: .runningUpperBody)
+        case .boxing:
+            CalibrationSilhouettePreview(kind: .boxingGuard)
         }
     }
 
