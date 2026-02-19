@@ -58,10 +58,6 @@ struct HomeView: View {
 
     private var detail: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Calibration Preview")
-                .font(.headline)
-                .foregroundStyle(.secondary)
-
             calibrationPreview
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
@@ -70,7 +66,18 @@ struct HomeView: View {
                 .foregroundStyle(.secondary)
         }
         .padding(18)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .safeAreaInset(edge: .bottom) {
+            HStack {
+                Spacer()
+                Button("Start") {
+                    activate(selectedKind)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+            }
+            .padding(.horizontal, 18)
+            .padding(.bottom, 18)
+        }
     }
 
     private var calibrationPreview: some View {
