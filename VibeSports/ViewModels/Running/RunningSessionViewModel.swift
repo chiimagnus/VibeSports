@@ -5,8 +5,8 @@ import Foundation
 final class RunningSessionViewModel: ObservableObject {
     enum State: Equatable {
         case idle
-        case calibrating(mode: RunningCalibrationMode, progress: Double, message: String)
-        case running(mode: RunningCalibrationMode)
+        case calibrating(progress: Double, message: String)
+        case running
     }
 
     let sceneRenderer: RunnerSceneRenderer
@@ -22,7 +22,6 @@ final class RunningSessionViewModel: ObservableObject {
 
     private var runningMetrics = RunningMetrics()
     private var upperBodyCalibration = UpperBodyCalibration(configuration: .init(mode: .generic))
-    private var fullBodyCalibration = FullBodyCalibration()
 
     private var latestControlPose: Pose?
 
@@ -88,22 +87,14 @@ final class RunningSessionViewModel: ObservableObject {
         runningMetrics.configuration.strideLengthMetersPerStep = max(0, strideLengthMetersPerStep)
     }
 
-    func start(mode: RunningCalibrationMode) {
+    func start() {
         runningMetrics.reset()
-        runningMetrics.setCalibrationMode(mode)
         runningMetrics.setCalibrationBaselineShoulderDistance(nil)
         keyboardDebugInputState.reset()
         latestControlPose = nil
 
         upperBodyCalibration.reset()
-        fullBodyCalibration.reset()
-
-        switch mode {
-        case .upperBody:
-            state = .calibrating(mode: mode, progress: 0, message: "Calibrating…")
-        case .fullBody:
-            state = .calibrating(mode: mode, progress: 0, message: "Calibrating…")
-        }
+        state = .calibrating(progress: 0, message: "Calibrating…")
 
         sceneRenderer.reset()
         sceneRenderer.setMotion(.zero)
@@ -137,26 +128,14 @@ final class RunningSessionViewModel: ObservableObject {
         case .idle:
             return
 
-        case .calibrating(let mode, _, _):
-            switch mode {
-            case .upperBody:
-                let out = upperBodyCalibration.ingest(pose: controlPose, now: now)
-                if let baseline = out.baseline {
-                    runningMetrics.setCalibrationBaselineShoulderDistance(baseline.shoulderDistance)
-                    state = .running(mode: mode)
-                    return
-                }
-                state = .calibrating(mode: mode, progress: out.progress, message: (out.issue?.message ?? "Calibrating…"))
-
-            case .fullBody:
-                let out = fullBodyCalibration.ingest(pose: controlPose, now: now)
-                if let baseline = out.baseline {
-                    runningMetrics.setCalibrationBaselineShoulderDistance(baseline.shoulderDistance)
-                    state = .running(mode: mode)
-                    return
-                }
-                state = .calibrating(mode: mode, progress: out.progress, message: (out.issue?.message ?? "Calibrating…"))
+        case .calibrating:
+            let out = upperBodyCalibration.ingest(pose: controlPose, now: now)
+            if let baseline = out.baseline {
+                runningMetrics.setCalibrationBaselineShoulderDistance(baseline.shoulderDistance)
+                state = .running
+                return
             }
+            state = .calibrating(progress: out.progress, message: (out.issue?.message ?? "Calibrating…"))
 
             sceneRenderer.setMotion(.zero)
             return

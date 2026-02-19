@@ -1,16 +1,15 @@
 import SwiftUI
 
 struct RunningCalibrationOverlayView: View {
-    let mode: RunningCalibrationMode
     let progress: Double
     let message: String
 
     var body: some View {
         VStack(spacing: 14) {
-            Text("Running • \(mode.title) Calibration")
+            Text("Running Calibration")
                 .font(.headline)
 
-            RunningCalibrationSilhouetteView(mode: mode)
+            RunningCalibrationSilhouetteView()
                 .frame(width: 360, height: 360)
                 .overlay {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -41,8 +40,6 @@ struct RunningCalibrationOverlayView: View {
 }
 
 private struct RunningCalibrationSilhouetteView: View {
-    let mode: RunningCalibrationMode
-
     var body: some View {
         Canvas { context, size in
             let w = size.width
@@ -90,24 +87,8 @@ private struct RunningCalibrationSilhouetteView: View {
             line(rightElbow, rightWrist)
 
             let chestTop = point(0.50, 0.32)
-            let chestBottom = point(0.50, mode == .upperBody ? 0.72 : 0.60)
+            let chestBottom = point(0.50, 0.72)
             line(chestTop, chestBottom)
-
-            if mode == .fullBody {
-                let leftHip = point(0.44, 0.62)
-                let rightHip = point(0.56, 0.62)
-                line(leftHip, rightHip)
-
-                let leftKnee = point(0.42, 0.78)
-                let rightKnee = point(0.58, 0.78)
-                let leftAnkle = point(0.40, 0.92)
-                let rightAnkle = point(0.60, 0.92)
-
-                line(leftHip, leftKnee)
-                line(leftKnee, leftAnkle)
-                line(rightHip, rightKnee)
-                line(rightKnee, rightAnkle)
-            }
         }
         .background {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -119,9 +100,7 @@ private struct RunningCalibrationSilhouetteView: View {
 
 #Preview {
     VStack(spacing: 24) {
-        RunningCalibrationOverlayView(mode: .upperBody, progress: 0.4, message: "Hold still…")
-        RunningCalibrationOverlayView(mode: .fullBody, progress: 0.8, message: "Keep your full body in frame (including ankles).")
+        RunningCalibrationOverlayView(progress: 0.4, message: "Hold still…")
     }
     .padding()
 }
-
