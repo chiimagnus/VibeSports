@@ -15,6 +15,7 @@ final class SwiftDataSettingsRepositoryTests: XCTestCase {
         XCTAssertFalse(settings.showPoseOverlay)
         XCTAssertFalse(settings.mirrorPoseOverlay)
         XCTAssertTrue(settings.poseStabilizationEnabled)
+        XCTAssertFalse(settings.showPoseArmDebugOverlay)
     }
 
     func test_updatesPersist() throws {
@@ -26,11 +27,13 @@ final class SwiftDataSettingsRepositoryTests: XCTestCase {
         try repository.updateShowPoseOverlay(true)
         try repository.updateMirrorPoseOverlay(true)
         try repository.updatePoseStabilizationEnabled(false)
+        try repository.updateShowPoseArmDebugOverlay(true)
 
         let settings = try repository.load()
         XCTAssertTrue(settings.showPoseOverlay)
         XCTAssertTrue(settings.mirrorPoseOverlay)
         XCTAssertFalse(settings.poseStabilizationEnabled)
+        XCTAssertTrue(settings.showPoseArmDebugOverlay)
     }
 
     func test_seedsFromLegacyUserDefaultsKeys() throws {
@@ -41,6 +44,7 @@ final class SwiftDataSettingsRepositoryTests: XCTestCase {
         defaults.set(true, forKey: "runner.debug.showPoseOverlay")
         defaults.set(true, forKey: "runner.debug.mirrorPoseOverlay")
         defaults.set(false, forKey: "runner.debug.poseStabilizationEnabled")
+        defaults.set(true, forKey: "runner.debug.showPoseArmDebugOverlay")
 
         let repository = SwiftDataSettingsRepository(modelContext: container.mainContext, userDefaults: defaults)
 
@@ -48,5 +52,6 @@ final class SwiftDataSettingsRepositoryTests: XCTestCase {
         XCTAssertTrue(settings.showPoseOverlay)
         XCTAssertTrue(settings.mirrorPoseOverlay)
         XCTAssertFalse(settings.poseStabilizationEnabled)
+        XCTAssertTrue(settings.showPoseArmDebugOverlay)
     }
 }

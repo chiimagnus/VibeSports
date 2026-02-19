@@ -30,12 +30,17 @@ struct RunningStepDetector: Sendable, Equatable {
     }
 
     mutating func ingest(pose: Pose?, movementQuality: Double, now: Date) -> StepEvent? {
+        ingest(pose: pose, movementQuality: movementQuality, scale: nil, now: now)
+    }
+
+    mutating func ingest(pose: Pose?, movementQuality: Double, scale: Double?, now: Date) -> StepEvent? {
         guard movementQuality >= configuration.minQualityToCountStep else {
             lastPhase = .neutral
             return nil
         }
 
-        let phase = Self.detectArmPhase(from: pose, threshold: configuration.armPhaseThreshold)
+        let scale = max(0.0001, scale ?? 1.0)
+        let phase = Self.detectArmPhase(from: pose, threshold: configuration.armPhaseThreshold, scale: scale)
         guard phase != .neutral else {
             lastPhase = .neutral
             return nil
@@ -59,16 +64,16 @@ struct RunningStepDetector: Sendable, Equatable {
         return StepEvent(intervalSincePreviousStep: intervalSincePreviousStep)
     }
 
-    private static func detectArmPhase(from pose: Pose?, threshold: Double) -> ArmPhase {
+    private static func detectArmPhase(from pose: Pose?, threshold: Double, scale: Double) -> ArmPhase {
         guard
             let left = pose?.joint(.leftWrist),
             let right = pose?.joint(.rightWrist)
         else { return .neutral }
 
-        let delta = left.location.y - right.location.y
-        if delta > threshold {
+        let deltaNormalized = Double(left.location.y - right.location.y) / max(0.0001, scale)
+        if deltaNormalized > threshold {
             return .leftUp
-        } else if delta < -threshold {
+        } else if deltaNormalized < -threshold {
             return .rightUp
         } else {
             return .neutral

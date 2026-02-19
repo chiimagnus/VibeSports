@@ -3,12 +3,46 @@ import Foundation
 
 struct PoseStabilizer: Sendable {
     struct Configuration: Sendable, Equatable {
+        struct JointOverride: Sendable, Equatable {
+            var onConfidenceThreshold: Double
+            var offConfidenceThreshold: Double
+            var holdDuration: TimeInterval
+        }
+
         var onConfidenceThreshold: Double = 0.35
         var offConfidenceThreshold: Double = 0.20
         var holdDuration: TimeInterval = 0.20
 
         /// 0 = no smoothing, 1 = no inertia.
         var smoothingAlpha: Double = 0.35
+
+        var jointOverrides: [PoseJointName: JointOverride] = [:]
+
+        func resolvedOnConfidenceThreshold(for name: PoseJointName) -> Double {
+            jointOverrides[name]?.onConfidenceThreshold ?? onConfidenceThreshold
+        }
+
+        func resolvedOffConfidenceThreshold(for name: PoseJointName) -> Double {
+            jointOverrides[name]?.offConfidenceThreshold ?? offConfidenceThreshold
+        }
+
+        func resolvedHoldDuration(for name: PoseJointName) -> TimeInterval {
+            jointOverrides[name]?.holdDuration ?? holdDuration
+        }
+
+        func withUpperBodyArmOverrides() -> Self {
+            var copy = self
+
+            let elbow = JointOverride(onConfidenceThreshold: 0.25, offConfidenceThreshold: 0.12, holdDuration: 0.40)
+            let wrist = JointOverride(onConfidenceThreshold: 0.20, offConfidenceThreshold: 0.10, holdDuration: 0.45)
+
+            copy.jointOverrides[.leftElbow] = elbow
+            copy.jointOverrides[.rightElbow] = elbow
+            copy.jointOverrides[.leftWrist] = wrist
+            copy.jointOverrides[.rightWrist] = wrist
+
+            return copy
+        }
     }
 
     var configuration = Configuration()
@@ -48,13 +82,17 @@ struct PoseStabilizer: Sendable {
             var state = jointStates[name] ?? JointState()
 
             let confidence = measurement?.confidence ?? 0
-            let shouldTurnOn = confidence >= configuration.onConfidenceThreshold
-            let shouldTurnOff = confidence > 0 && confidence < configuration.offConfidenceThreshold
+            let onThreshold = configuration.resolvedOnConfidenceThreshold(for: name)
+            let offThreshold = configuration.resolvedOffConfidenceThreshold(for: name)
+            let holdDuration = configuration.resolvedHoldDuration(for: name)
+
+            let shouldTurnOn = confidence >= onThreshold
+            let shouldTurnOff = confidence > 0 && confidence < offThreshold
 
             if state.isVisible {
                 if shouldTurnOff {
                     // Allow hold window before hiding.
-                    if let lastSeenAt = state.lastSeenAt, now.timeIntervalSince(lastSeenAt) > configuration.holdDuration {
+                    if let lastSeenAt = state.lastSeenAt, now.timeIntervalSince(lastSeenAt) > holdDuration {
                         state.isVisible = false
                         state.filteredLocation = nil
                     }
@@ -86,7 +124,7 @@ struct PoseStabilizer: Sendable {
                 if
                     let filtered = state.filteredLocation,
                     let lastSeenAt = state.lastSeenAt,
-                    now.timeIntervalSince(lastSeenAt) <= configuration.holdDuration
+                    now.timeIntervalSince(lastSeenAt) <= holdDuration
                 {
                     // Ensure overlay keeps drawing while visible/held.
                     outputJoints[name] = PoseJoint(location: filtered, confidence: 1.0)
@@ -106,7 +144,8 @@ struct PoseStabilizer: Sendable {
         for (name, state) in jointStates {
             guard state.isVisible else { continue }
             guard let lastSeenAt = state.lastSeenAt else { continue }
-            guard now.timeIntervalSince(lastSeenAt) <= configuration.holdDuration else { continue }
+            let holdDuration = configuration.resolvedHoldDuration(for: name)
+            guard now.timeIntervalSince(lastSeenAt) <= holdDuration else { continue }
             guard let filtered = state.filteredLocation else { continue }
             outputJoints[name] = PoseJoint(location: filtered, confidence: 1.0)
         }
@@ -121,4 +160,3 @@ struct PoseStabilizer: Sendable {
         return CGPoint(x: x, y: y)
     }
 }
-

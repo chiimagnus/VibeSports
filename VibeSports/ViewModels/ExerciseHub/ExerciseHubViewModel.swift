@@ -1,0 +1,206 @@
+import Combine
+import Foundation
+
+@MainActor
+final class ExerciseHubViewModel: ObservableObject {
+    let cameraSession: CameraSession
+    let runningSession: RunningSessionViewModel
+
+    @Published private(set) var sessionState: ExerciseSessionState = .idle(selectedKind: .running, runningCalibrationMode: nil)
+    @Published private(set) var latestPose: Pose?
+    @Published private(set) var boxingSession: BoxingSessionViewModel?
+
+    @Published private(set) var showPoseOverlay: Bool = false
+    @Published private(set) var mirrorCamera: Bool = true
+    @Published private(set) var poseStabilizationEnabled: Bool = true
+    @Published private(set) var showPoseArmDebugOverlay: Bool = false
+    @Published private(set) var stabilizedPose: Pose?
+
+    private let clock: any Clock
+    private let settingsRepository: any SettingsRepository
+    private var poseStabilizer = PoseStabilizer()
+
+    private var cancellables: Set<AnyCancellable> = []
+
+    var selectedExerciseKind: ExerciseKind {
+        sessionState.kind
+    }
+
+    var selectedRunningCalibrationMode: RunningCalibrationMode? {
+        sessionState.rawRunningCalibrationMode
+    }
+
+    init(dependencies: AppDependencies) {
+        self.clock = dependencies.clock
+        self.settingsRepository = dependencies.settingsRepository
+        self.cameraSession = dependencies.makeCameraSession()
+        self.runningSession = dependencies.makeRunningSessionViewModel()
+
+        let cadence = runningSession.sceneRenderer.tuning.cadence
+        updateStrideLengthMetersPerStep(cadence.strideLengthMetersPerStep)
+
+        poseStabilizer.configuration = poseStabilizer.configuration.withUpperBodyArmOverrides()
+
+        cameraSession.objectWillChange
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
+        cameraSession.posePublisher
+            .sink { [weak self] pose in
+                self?.handlePose(pose)
+            }
+            .store(in: &cancellables)
+
+        loadSettings()
+    }
+
+    func updateSelectedExerciseKind(_ kind: ExerciseKind) {
+        guard sessionState.isIdle else { return }
+        sessionState = .idle(selectedKind: kind, runningCalibrationMode: sessionState.rawRunningCalibrationMode)
+    }
+
+    func updateRunningCalibrationMode(_ mode: RunningCalibrationMode) {
+        guard sessionState.isIdle else { return }
+        guard sessionState.kind == .running else { return }
+        sessionState = .idle(selectedKind: .running, runningCalibrationMode: mode)
+    }
+
+    func startTapped() {
+        guard sessionState.isIdle else { return }
+        let kind = sessionState.kind
+
+        switch kind {
+        case .running:
+            boxingSession = nil
+            guard let mode = sessionState.rawRunningCalibrationMode else { return }
+            runningSession.start(mode: mode)
+            sessionState = .calibrating(kind: .running, runningCalibrationMode: mode)
+        case .boxing:
+            boxingSession = BoxingSessionViewModel(clock: clock)
+            sessionState = .calibrating(kind: kind, runningCalibrationMode: sessionState.rawRunningCalibrationMode)
+        }
+
+        Task { [weak self] in
+            guard let self else { return }
+            await cameraSession.start()
+        }
+    }
+
+    func stopTapped() {
+        guard !sessionState.isIdle else { return }
+        let selectedKind = sessionState.kind
+        stop()
+        sessionState = .idle(selectedKind: selectedKind, runningCalibrationMode: sessionState.rawRunningCalibrationMode)
+    }
+
+    func stopIfNeeded() {
+        guard !sessionState.isIdle else { return }
+        let selectedKind = sessionState.kind
+        stop()
+        sessionState = .idle(selectedKind: selectedKind, runningCalibrationMode: sessionState.rawRunningCalibrationMode)
+    }
+
+    private func stop() {
+        cameraSession.stop()
+        runningSession.stop()
+        boxingSession = nil
+        latestPose = nil
+        stabilizedPose = nil
+    }
+
+    private func loadSettings() {
+        do {
+            let settings = try settingsRepository.load()
+            showPoseOverlay = settings.showPoseOverlay
+            mirrorCamera = settings.mirrorPoseOverlay
+            poseStabilizationEnabled = settings.poseStabilizationEnabled
+            showPoseArmDebugOverlay = settings.showPoseArmDebugOverlay
+        } catch {
+            showPoseOverlay = false
+            mirrorCamera = true
+            poseStabilizationEnabled = true
+            showPoseArmDebugOverlay = false
+        }
+    }
+
+    func updateShowPoseOverlay(_ isEnabled: Bool) {
+        showPoseOverlay = isEnabled
+        do {
+            try settingsRepository.updateShowPoseOverlay(isEnabled)
+        } catch {}
+    }
+
+    func updateMirrorCamera(_ isEnabled: Bool) {
+        mirrorCamera = isEnabled
+        do {
+            try settingsRepository.updateMirrorPoseOverlay(isEnabled)
+        } catch {}
+    }
+
+    func updatePoseStabilizationEnabled(_ isEnabled: Bool) {
+        poseStabilizationEnabled = isEnabled
+        poseStabilizer.reset()
+        stabilizedPose = nil
+        runningSession.pushCurrentControlMotion()
+        do {
+            try settingsRepository.updatePoseStabilizationEnabled(isEnabled)
+        } catch {}
+    }
+
+    func updateShowPoseArmDebugOverlay(_ isEnabled: Bool) {
+        showPoseArmDebugOverlay = isEnabled
+        do {
+            try settingsRepository.updateShowPoseArmDebugOverlay(isEnabled)
+        } catch {}
+    }
+
+    func handleKeyDown(_ key: KeyboardDebugInputState.Key) {
+        runningSession.handleKeyDown(key)
+    }
+
+    func handleKeyUp(_ key: KeyboardDebugInputState.Key) {
+        runningSession.handleKeyUp(key)
+    }
+
+    func handleBoostModifierChanged(_ isPressed: Bool) {
+        runningSession.handleBoostModifierChanged(isPressed)
+    }
+
+    func resetKeyboardInput() {
+        runningSession.resetKeyboardInput()
+    }
+
+    func updateStrideLengthMetersPerStep(_ strideLengthMetersPerStep: Double) {
+        runningSession.updateStrideLengthMetersPerStep(strideLengthMetersPerStep)
+    }
+
+    private func handlePose(_ pose: Pose?) {
+        latestPose = pose
+
+        if poseStabilizationEnabled {
+            stabilizedPose = poseStabilizer.ingest(pose: pose, now: clock.now)
+        } else {
+            stabilizedPose = pose
+        }
+
+        let poseForControl = poseStabilizationEnabled ? stabilizedPose : pose
+
+        guard !sessionState.isIdle else { return }
+        if sessionState.kind == .boxing {
+            boxingSession?.ingest(pose: poseForControl)
+            runningSession.sceneRenderer.setMotion(.zero)
+            return
+        }
+
+        runningSession.ingest(rawPose: pose, controlPose: poseForControl)
+        if
+            case .running = runningSession.state,
+            case .calibrating(let kind, _) = sessionState,
+            kind == .running
+        {
+            sessionState = .running(kind: .running, runningCalibrationMode: sessionState.runningCalibrationMode)
+        }
+    }
+}
