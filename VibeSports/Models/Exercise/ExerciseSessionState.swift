@@ -1,5 +1,5 @@
 enum ExerciseSessionState: Sendable, Equatable {
-    case idle(selectedKind: ExerciseKind, runningCalibrationMode: RunningCalibrationMode)
+    case idle(selectedKind: ExerciseKind, runningCalibrationMode: RunningCalibrationMode?)
     case calibrating(kind: ExerciseKind, runningCalibrationMode: RunningCalibrationMode?)
     case running(kind: ExerciseKind, runningCalibrationMode: RunningCalibrationMode?)
 
@@ -15,11 +15,22 @@ enum ExerciseSessionState: Sendable, Equatable {
     var runningCalibrationMode: RunningCalibrationMode {
         switch self {
         case .idle(_, let mode):
-            return mode
+            return mode ?? .upperBody
         case .calibrating(_, let mode):
             return mode ?? .upperBody
         case .running(_, let mode):
             return mode ?? .upperBody
+        }
+    }
+
+    var rawRunningCalibrationMode: RunningCalibrationMode? {
+        switch self {
+        case .idle(_, let mode):
+            return mode
+        case .calibrating(_, let mode):
+            return mode
+        case .running(_, let mode):
+            return mode
         }
     }
 

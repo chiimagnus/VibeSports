@@ -52,6 +52,12 @@ struct ExerciseHubView: View {
             }
             .padding(16)
 
+            if viewModel.sessionState.kind == .running && !viewModel.sessionState.isIdle {
+                if case .calibrating(let mode, let progress, let message) = viewModel.runningSession.state {
+                    RunningCalibrationOverlayView(mode: mode, progress: progress, message: message)
+                }
+            }
+
             if viewModel.sessionState.isIdle {
                 idleOverlay
             }
@@ -196,11 +202,21 @@ struct ExerciseHubView: View {
             }
             .pickerStyle(.segmented)
 
+            if viewModel.selectedExerciseKind == .running {
+                Picker("Calibration", selection: runningCalibrationModeBinding) {
+                    ForEach(RunningCalibrationMode.allCases, id: \.self) { mode in
+                        Text(mode.title).tag(Optional(mode))
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+
             Button("Start") {
                 viewModel.startTapped()
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
+            .disabled(isStartDisabled)
         }
         .padding(20)
         .background {
@@ -221,12 +237,32 @@ struct ExerciseHubView: View {
         )
     }
 
+    private var runningCalibrationModeBinding: Binding<RunningCalibrationMode?> {
+        Binding(
+            get: { viewModel.selectedRunningCalibrationMode },
+            set: { newValue in
+                guard let newValue else { return }
+                viewModel.updateRunningCalibrationMode(newValue)
+            }
+        )
+    }
+
+    private var isStartDisabled: Bool {
+        if viewModel.selectedExerciseKind == .running {
+            return viewModel.selectedRunningCalibrationMode == nil
+        }
+        return false
+    }
+
     private var idleSubtitle: String {
         switch viewModel.selectedExerciseKind {
         case .running:
-            return "Press Start to use camera pose detection to drive the 3D scene."
+            if viewModel.selectedRunningCalibrationMode == nil {
+                return "Select a calibration mode before starting."
+            }
+            return "Press Start to calibrate, then use pose detection to drive the 3D scene."
         case .boxing:
-            return "Press Start to begin Boxing (calibration + debug UI will be added in P1)."
+            return "Press Start to calibrate and begin Boxing."
         }
     }
 
