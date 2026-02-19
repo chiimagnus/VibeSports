@@ -73,6 +73,10 @@ struct UpperBodyCalibration: Sendable, Equatable {
 
     private var state = State()
 
+    init(configuration: Configuration = .init()) {
+        self.configuration = configuration
+    }
+
     mutating func reset() {
         state = State()
     }
@@ -212,4 +216,3 @@ struct UpperBodyCalibration: Sendable, Equatable {
         )
     }
 }
-

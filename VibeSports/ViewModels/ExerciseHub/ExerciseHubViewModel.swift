@@ -9,6 +9,7 @@ final class ExerciseHubViewModel: ObservableObject {
     @Published private(set) var sessionState: ExerciseSessionState = .idle(selectedKind: .running)
     @Published private(set) var metrics: RunningMetricsSnapshot
     @Published private(set) var latestPose: Pose?
+    @Published private(set) var boxingSession: BoxingSessionViewModel?
 
     @Published private(set) var showPoseOverlay: Bool = false
     @Published private(set) var mirrorCamera: Bool = true
@@ -84,9 +85,10 @@ final class ExerciseHubViewModel: ObservableObject {
 
         switch kind {
         case .running:
+            boxingSession = nil
             sessionState = .running(kind: kind)
         case .boxing:
-            // Placeholder: P1 will implement Boxing calibration + full-screen UI.
+            boxingSession = BoxingSessionViewModel(clock: clock)
             sessionState = .calibrating(kind: kind)
         }
 
@@ -114,6 +116,7 @@ final class ExerciseHubViewModel: ObservableObject {
         cameraSession.stop()
         sceneRenderer.reset()
         runningMetrics.reset()
+        boxingSession = nil
         keyboardDebugInputState.reset()
         latestPose = nil
         stabilizedPose = nil
@@ -228,8 +231,8 @@ final class ExerciseHubViewModel: ObservableObject {
         let poseForControl = poseStabilizationEnabled ? stabilizedPose : pose
 
         guard !sessionState.isIdle else { return }
-        guard sessionState.kind == .running else {
-            // Avoid driving the running scene during Boxing placeholder flow.
+        if sessionState.kind == .boxing {
+            boxingSession?.ingest(pose: poseForControl)
             sceneRenderer.setMotion(.zero)
             return
         }
