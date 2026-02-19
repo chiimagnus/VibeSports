@@ -2,6 +2,12 @@
 
 > 执行方式：建议后续使用 `executing-plans` 按批次实现与验收。
 
+**Status（状态）**
+- Completed: 2026-02-19
+- Verification:
+  - `xcodebuild -project VibeSports.xcodeproj -scheme VibeSports -destination 'platform=macOS' build`
+  - `xcodebuild -project VibeSports.xcodeproj -scheme VibeSports -destination 'platform=macOS' test`
+
 **Goal（目标）:**
 - 在主窗口开始前让用户选择运动场景（Running / Boxing）。
 - 新增 Boxing：以“摄像头大预览 + Debug 叠层”为主，**必须通过上半身校准**才能开始识别。
