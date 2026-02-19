@@ -3,7 +3,7 @@ import SwiftUI
 
 struct ExerciseWindowView: View {
     let dependencies: AppDependencies
-    
+
     @Environment(\.openWindow) private var openWindow
     @EnvironmentObject private var navState: AppNavigationState
     @EnvironmentObject private var debugTools: DebugToolsStore
@@ -36,12 +36,6 @@ struct ExerciseWindowView: View {
             .frame(width: 1, height: 1)
             .opacity(0.01)
 
-            VStack {
-                headerBar
-                Spacer(minLength: 0)
-            }
-            .padding(16)
-
             if viewModel.sessionState.kind == .running && !viewModel.sessionState.isIdle {
                 if case .calibrating(let progress, let message) = viewModel.runningSession.state {
                     RunningCalibrationOverlayView(progress: progress, message: message)
@@ -49,6 +43,16 @@ struct ExerciseWindowView: View {
             }
         }
         .background(.black.opacity(0.06))
+        .overlay(alignment: .topLeading) {
+            topLeftHUD
+                .padding(16)
+                .zIndex(10)
+        }
+        .overlay(alignment: .topTrailing) {
+            topRightHUD
+                .padding(16)
+                .zIndex(10)
+        }
         .overlay {
             WindowReferenceReader { window in
                 self.window = window
@@ -96,25 +100,49 @@ struct ExerciseWindowView: View {
         }
     }
 
-    private var headerBar: some View {
-        HStack(alignment: .top, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("VibeSports")
-                    .font(.headline)
-                statusText
-                    .foregroundStyle(.secondary)
-                    .font(.subheadline)
+    private var topLeftHUD: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("VibeSports")
+                .font(.headline)
+
+            statusText
+                .foregroundStyle(.secondary)
+                .font(.subheadline)
+
+            if viewModel.sessionState.kind == .running {
                 Text("Control: \(viewModel.runningSession.controlMode.debugTitle)")
                     .foregroundStyle(.secondary)
                     .font(.caption)
             }
+        }
+        .padding(12)
+        .background {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(.white.opacity(0.10))
+                }
+        }
+        .shadow(color: .black.opacity(0.18), radius: 16, y: 10)
+    }
 
-            Spacer()
-
+    private var topRightHUD: some View {
+        VStack(alignment: .trailing, spacing: 10) {
             Button("End") {
                 endTapped()
             }
             .buttonStyle(.bordered)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background {
+                Capsule()
+                    .fill(.ultraThinMaterial)
+                    .overlay {
+                        Capsule()
+                            .strokeBorder(.white.opacity(0.10))
+                    }
+            }
 
             cameraPreview
         }
