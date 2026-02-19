@@ -38,8 +38,10 @@ struct ExerciseHubView: View {
             }
             .padding(16)
 
-            if viewModel.mode == .idle {
+            if viewModel.sessionState.isIdle {
                 idleOverlay
+            } else if viewModel.sessionState.kind == .boxing {
+                boxingPlaceholderOverlay
             }
         }
         .frame(minWidth: 900, minHeight: 600)
@@ -84,7 +86,7 @@ struct ExerciseHubView: View {
 
             Spacer()
 
-            if viewModel.mode == .running {
+            if !viewModel.sessionState.isIdle {
                 Button("End") {
                     viewModel.stopTapped()
                 }
@@ -107,7 +109,18 @@ struct ExerciseHubView: View {
         case .failed(let message):
             Text("Camera failed to start: \(message)")
         case .running:
-            Text("Running • \(String(format: "%.1f", viewModel.metrics.speedKilometersPerHour)) km/h")
+            switch viewModel.sessionState {
+            case .idle:
+                Text("Camera on")
+            case .calibrating(let kind):
+                Text("\(kind.title) • Calibrating…")
+            case .running(let kind):
+                if kind == .running {
+                    Text("Running • \(String(format: "%.1f", viewModel.metrics.speedKilometersPerHour)) km/h")
+                } else {
+                    Text("\(kind.title) • Running")
+                }
+            }
         }
     }
 
@@ -160,8 +173,17 @@ struct ExerciseHubView: View {
         VStack(spacing: 12) {
             Text("Ready")
                 .font(.title2.bold())
-            Text("Press Start to use camera pose detection to drive the 3D scene.")
+            Text(idleSubtitle)
                 .foregroundStyle(.secondary)
+
+            Picker("Exercise", selection: selectedExerciseBinding) {
+                ForEach(ExerciseKind.allCases, id: \.self) { kind in
+                    Text(kind.title)
+                        .tag(kind)
+                }
+            }
+            .pickerStyle(.segmented)
+
             Button("Start") {
                 viewModel.startTapped()
             }
@@ -178,6 +200,41 @@ struct ExerciseHubView: View {
                 }
         }
             .shadow(color: .black.opacity(0.25), radius: 22, y: 12)
+    }
+
+    private var selectedExerciseBinding: Binding<ExerciseKind> {
+        Binding(
+            get: { viewModel.selectedExerciseKind },
+            set: { viewModel.updateSelectedExerciseKind($0) }
+        )
+    }
+
+    private var idleSubtitle: String {
+        switch viewModel.selectedExerciseKind {
+        case .running:
+            return "Press Start to use camera pose detection to drive the 3D scene."
+        case .boxing:
+            return "Press Start to begin Boxing (calibration + debug UI will be added in P1)."
+        }
+    }
+
+    private var boxingPlaceholderOverlay: some View {
+        VStack(spacing: 10) {
+            Text("Boxing (WIP)")
+                .font(.title3.bold())
+            Text("P1 will add full-screen camera + upper-body calibration + punch debug panel.")
+                .foregroundStyle(.secondary)
+        }
+        .padding(20)
+        .background {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .strokeBorder(.white.opacity(0.1))
+                }
+        }
+        .shadow(color: .black.opacity(0.25), radius: 22, y: 12)
     }
 
     private var runnerCommandSnapshot: RunnerCommandCenter.Snapshot {

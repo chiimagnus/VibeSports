@@ -3,15 +3,10 @@ import Foundation
 
 @MainActor
 final class ExerciseHubViewModel: ObservableObject {
-    enum Mode: Equatable {
-        case idle
-        case running
-    }
-
     let cameraSession: CameraSession
     let sceneRenderer: RunnerSceneRenderer
 
-    @Published private(set) var mode: Mode = .idle
+    @Published private(set) var sessionState: ExerciseSessionState = .idle(selectedKind: .running)
     @Published private(set) var metrics: RunningMetricsSnapshot
     @Published private(set) var latestPose: Pose?
 
@@ -35,6 +30,10 @@ final class ExerciseHubViewModel: ObservableObject {
     private var controlComposer = RunnerControlComposer(mode: .mixed)
 
     private var cancellables: Set<AnyCancellable> = []
+
+    var selectedExerciseKind: ExerciseKind {
+        sessionState.kind
+    }
 
     init(dependencies: AppDependencies) {
         self.clock = dependencies.clock
@@ -74,9 +73,22 @@ final class ExerciseHubViewModel: ObservableObject {
         loadSettings()
     }
 
+    func updateSelectedExerciseKind(_ kind: ExerciseKind) {
+        guard sessionState.isIdle else { return }
+        sessionState = .idle(selectedKind: kind)
+    }
+
     func startTapped() {
-        guard mode != .running else { return }
-        mode = .running
+        guard sessionState.isIdle else { return }
+        let kind = sessionState.kind
+
+        switch kind {
+        case .running:
+            sessionState = .running(kind: kind)
+        case .boxing:
+            // Placeholder: P1 will implement Boxing calibration + full-screen UI.
+            sessionState = .calibrating(kind: kind)
+        }
 
         Task { [weak self] in
             guard let self else { return }
@@ -85,15 +97,17 @@ final class ExerciseHubViewModel: ObservableObject {
     }
 
     func stopTapped() {
-        guard mode != .idle else { return }
+        guard !sessionState.isIdle else { return }
+        let selectedKind = sessionState.kind
         stop()
-        mode = .idle
+        sessionState = .idle(selectedKind: selectedKind)
     }
 
     func stopIfNeeded() {
-        guard mode == .running else { return }
+        guard !sessionState.isIdle else { return }
+        let selectedKind = sessionState.kind
         stop()
-        mode = .idle
+        sessionState = .idle(selectedKind: selectedKind)
     }
 
     private func stop() {
@@ -212,10 +226,15 @@ final class ExerciseHubViewModel: ObservableObject {
         }
 
         let poseForControl = poseStabilizationEnabled ? stabilizedPose : pose
-        let snapshot = runningMetrics.ingest(
-            pose: pose,
-            now: clock.now
-        )
+
+        guard !sessionState.isIdle else { return }
+        guard sessionState.kind == .running else {
+            // Avoid driving the running scene during Boxing placeholder flow.
+            sceneRenderer.setMotion(.zero)
+            return
+        }
+
+        let snapshot = runningMetrics.ingest(pose: pose, now: clock.now)
         metrics = snapshot
         sceneRenderer.setMotion(makeMotion(from: snapshot, pose: poseForControl))
     }
@@ -242,6 +261,11 @@ final class ExerciseHubViewModel: ObservableObject {
     }
 
     private func pushCurrentControlMotion() {
+        guard sessionState.kind == .running else {
+            sceneRenderer.setMotion(.zero)
+            return
+        }
+
         let poseForControl = poseStabilizationEnabled ? stabilizedPose : latestPose
         let motion = makeMotion(from: metrics, pose: poseForControl)
         sceneRenderer.setMotion(motion)
