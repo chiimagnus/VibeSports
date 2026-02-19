@@ -1,4 +1,4 @@
-enum ExerciseKind: String, Sendable, CaseIterable, Equatable {
+enum ExerciseKind: String, Sendable, CaseIterable, Equatable, Hashable {
     case running
     case boxing
 
@@ -11,4 +11,3 @@ enum ExerciseKind: String, Sendable, CaseIterable, Equatable {
         }
     }
 }
-
