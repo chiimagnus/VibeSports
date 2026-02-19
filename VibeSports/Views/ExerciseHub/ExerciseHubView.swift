@@ -14,9 +14,23 @@ struct ExerciseHubView: View {
 
     var body: some View {
         ZStack {
-            RunnerSceneView(renderer: viewModel.sceneRenderer)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .ignoresSafeArea()
+            if viewModel.sessionState.kind == .boxing && !viewModel.sessionState.isIdle {
+                if let session = viewModel.boxingSession {
+                    BoxingView(
+                        sessionViewModel: session,
+                        cameraSession: viewModel.cameraSession,
+                        isMirroredHorizontally: viewModel.mirrorCamera,
+                        showPoseOverlay: viewModel.showPoseOverlay,
+                        pose: viewModel.poseStabilizationEnabled ? viewModel.stabilizedPose : viewModel.latestPose
+                    )
+                } else {
+                    Color.black.ignoresSafeArea()
+                }
+            } else {
+                RunnerSceneView(renderer: viewModel.sceneRenderer)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .ignoresSafeArea()
+            }
 
             KeyboardInputCaptureView(
                 onKeyDown: { key in
@@ -40,8 +54,6 @@ struct ExerciseHubView: View {
 
             if viewModel.sessionState.isIdle {
                 idleOverlay
-            } else if viewModel.sessionState.kind == .boxing {
-                boxingPlaceholderOverlay
             }
         }
         .frame(minWidth: 900, minHeight: 600)
@@ -216,25 +228,6 @@ struct ExerciseHubView: View {
         case .boxing:
             return "Press Start to begin Boxing (calibration + debug UI will be added in P1)."
         }
-    }
-
-    private var boxingPlaceholderOverlay: some View {
-        VStack(spacing: 10) {
-            Text("Boxing (WIP)")
-                .font(.title3.bold())
-            Text("P1 will add full-screen camera + upper-body calibration + punch debug panel.")
-                .foregroundStyle(.secondary)
-        }
-        .padding(20)
-        .background {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .strokeBorder(.white.opacity(0.1))
-                }
-        }
-        .shadow(color: .black.opacity(0.25), radius: 22, y: 12)
     }
 
     private var runnerCommandSnapshot: RunnerCommandCenter.Snapshot {
