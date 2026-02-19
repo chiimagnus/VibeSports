@@ -42,7 +42,7 @@ struct VibeSportsApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RunnerGameView(dependencies: dependencies)
+            ExerciseHubView(dependencies: dependencies)
                 .environmentObject(debugTools)
                 .environmentObject(runnerCommands)
         }

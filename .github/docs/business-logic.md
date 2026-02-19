@@ -129,7 +129,7 @@ flowchart LR
 ## 入口索引（Entry Index）
 
 - `VibeSports/Views/VibeSportsApp.swift`
-- `VibeSports/Views/RunnerGame/RunnerGameView.swift`
-- `VibeSports/ViewModels/RunnerGameViewModel.swift`
+- `VibeSports/Views/ExerciseHub/ExerciseHubView.swift`
+- `VibeSports/ViewModels/ExerciseHub/ExerciseHubViewModel.swift`
 - `VibeSports/Services/AppDependencies.swift`
 - `VibeSports/Models/Running/RunningMetrics.swift`

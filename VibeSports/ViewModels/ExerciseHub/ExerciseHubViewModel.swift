@@ -2,7 +2,7 @@ import Combine
 import Foundation
 
 @MainActor
-final class RunnerGameViewModel: ObservableObject {
+final class ExerciseHubViewModel: ObservableObject {
     enum Mode: Equatable {
         case idle
         case running

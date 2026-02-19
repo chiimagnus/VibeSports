@@ -1,15 +1,15 @@
 import SwiftUI
 
-struct RunnerGameView: View {
+struct ExerciseHubView: View {
     let dependencies: AppDependencies
 
-    @StateObject private var viewModel: RunnerGameViewModel
+    @StateObject private var viewModel: ExerciseHubViewModel
     @EnvironmentObject private var debugTools: DebugToolsStore
     @EnvironmentObject private var runnerCommands: RunnerCommandCenter
 
     init(dependencies: AppDependencies) {
         self.dependencies = dependencies
-        _viewModel = StateObject(wrappedValue: RunnerGameViewModel(dependencies: dependencies))
+        _viewModel = StateObject(wrappedValue: ExerciseHubViewModel(dependencies: dependencies))
     }
 
     var body: some View {
@@ -207,7 +207,7 @@ struct RunnerGameView: View {
 }
 
 #Preview {
-    RunnerGameView(dependencies: .preview())
+    ExerciseHubView(dependencies: .preview())
 }
 
 private struct PoseArmDebugOverlay: View {
