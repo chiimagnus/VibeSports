@@ -60,10 +60,6 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 12) {
             calibrationPreview
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            Text("Tip: Home doesn’t use the camera. The exercise window will request camera access.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
         }
         .padding(18)
         .safeAreaInset(edge: .bottom) {
