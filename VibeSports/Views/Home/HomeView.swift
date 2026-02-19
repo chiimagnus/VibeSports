@@ -46,13 +46,12 @@ struct HomeView: View {
                     Image(systemName: symbolName(for: kind))
                 }
                 .tag(kind)
-                .simultaneousGesture(TapGesture(count: 2).onEnded { activate(kind) })
             }
         }
         .navigationTitle("VibeSports")
         .listStyle(.sidebar)
         .safeAreaInset(edge: .bottom) {
-            Text("Double-click a mode to start.")
+            Text("Select a mode, then click Start.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 12)
