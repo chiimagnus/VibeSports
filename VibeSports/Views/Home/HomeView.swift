@@ -6,7 +6,9 @@ struct HomeView: View {
     @Environment(\.dismissWindow) private var dismissWindow
     @EnvironmentObject private var navState: AppNavigationState
 
-    @State private var selectedKind: ExerciseKind? = nil
+    @State private var selectedKind: ExerciseKind = .running
+    @State private var lastTapKind: ExerciseKind?
+    @State private var lastTapAt: Date?
 
     var body: some View {
         NavigationSplitView {
@@ -18,25 +20,12 @@ struct HomeView: View {
         .navigationSplitViewColumnWidth(min: 240, ideal: 300, max: 360)
         .frame(minWidth: 900, minHeight: 600)
         .onAppear {
-            if selectedKind == nil {
-                selectedKind = navState.selectedExerciseKind
-            }
-        }
-        .onChange(of: selectedKind) { _, newValue in
-            guard let newValue else { return }
-            guard navState.selectedExerciseKind != newValue else { return }
-            DispatchQueue.main.async {
-                navState.selectedExerciseKind = newValue
-            }
-        }
-        .onChange(of: navState.selectedExerciseKind) { _, newValue in
-            guard selectedKind != newValue else { return }
-            selectedKind = newValue
+            selectedKind = navState.selectedExerciseKind
         }
     }
 
     private var sidebar: some View {
-        List(selection: $selectedKind) {
+        List {
             ForEach(ExerciseKind.allCases, id: \.self) { kind in
                 Label {
                     VStack(alignment: .leading, spacing: 2) {
@@ -49,11 +38,11 @@ struct HomeView: View {
                 } icon: {
                     Image(systemName: symbolName(for: kind))
                 }
-                .tag(kind)
                 .contentShape(Rectangle())
-                .simultaneousGesture(TapGesture(count: 2).onEnded {
-                    activate(kind)
-                })
+                .onTapGesture {
+                    handleTap(kind)
+                }
+                .listRowBackground(selectedKind == kind ? Color.accentColor.opacity(0.18) : Color.clear)
             }
         }
         .navigationTitle("VibeSports")
@@ -83,13 +72,9 @@ struct HomeView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
-    private var effectiveSelectedKind: ExerciseKind {
-        selectedKind ?? navState.selectedExerciseKind
-    }
-
     private var calibrationPreview: some View {
         Group {
-            switch effectiveSelectedKind {
+            switch selectedKind {
             case .running:
                 CalibrationSilhouettePreview(kind: .runningUpperBody)
             case .boxing:
@@ -114,6 +99,23 @@ struct HomeView: View {
         case .boxing:
             return "figure.boxing"
         }
+    }
+
+    private func handleTap(_ kind: ExerciseKind) {
+        let now = Date()
+
+        selectedKind = kind
+        navState.selectedExerciseKind = kind
+
+        if lastTapKind == kind, let lastTapAt, now.timeIntervalSince(lastTapAt) < 0.35 {
+            lastTapKind = nil
+            self.lastTapAt = nil
+            activate(kind)
+            return
+        }
+
+        lastTapKind = kind
+        lastTapAt = now
     }
 
     private func activate(_ kind: ExerciseKind) {
