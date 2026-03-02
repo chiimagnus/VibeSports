@@ -4,6 +4,10 @@ struct RunningHeadObservation: Sendable, Equatable {
     var noseX: Double
     var noseY: Double
 
+    /// Face bounding box lower-left origin (Vision normalized coordinates 0...1).
+    var faceMinX: Double
+    var faceMinY: Double
+
     var faceWidth: Double
     var faceHeight: Double
 
@@ -16,6 +20,8 @@ struct RunningHeadObservation: Sendable, Equatable {
     init(
         noseX: Double,
         noseY: Double,
+        faceMinX: Double = 0,
+        faceMinY: Double = 0,
         faceWidth: Double,
         faceHeight: Double,
         confidence: Double,
@@ -23,6 +29,8 @@ struct RunningHeadObservation: Sendable, Equatable {
     ) {
         self.noseX = noseX
         self.noseY = noseY
+        self.faceMinX = min(1, max(0, faceMinX))
+        self.faceMinY = min(1, max(0, faceMinY))
         self.faceWidth = max(0.0001, faceWidth)
         self.faceHeight = max(0.0001, faceHeight)
         self.confidence = min(1, max(0, confidence))

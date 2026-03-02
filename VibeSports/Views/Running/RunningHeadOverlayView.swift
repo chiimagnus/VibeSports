@@ -16,7 +16,25 @@ struct RunningHeadOverlayView: View {
                 let dotRect = CGRect(x: nose.x - 4, y: nose.y - 4, width: 8, height: 8)
                 context.fill(Path(ellipseIn: dotRect), with: .color(.pink.opacity(0.9)))
 
+                let faceWidth = max(0.0001, observation.faceWidth)
                 let faceHeight = max(0.0001, observation.faceHeight)
+                let faceMinX = observation.faceMinX
+                let faceMinY = observation.faceMinY
+
+                let rectMinXNorm = isMirroredHorizontally ? (1 - (faceMinX + faceWidth)) : faceMinX
+                let rectMinYNorm = faceMinY
+                let rect = CGRect(
+                    x: rectMinXNorm * size.width,
+                    y: (1 - (rectMinYNorm + faceHeight)) * size.height,
+                    width: faceWidth * size.width,
+                    height: faceHeight * size.height
+                )
+                context.stroke(
+                    Path(rect),
+                    with: .color(.pink.opacity(0.55)),
+                    style: StrokeStyle(lineWidth: 2, lineJoin: .round)
+                )
+
                 let guide = Path { path in
                     path.move(to: nose)
                     path.addLine(to: CGPoint(x: nose.x, y: nose.y + faceHeight * size.height))

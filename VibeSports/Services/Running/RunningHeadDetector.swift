@@ -57,6 +57,8 @@ final class RunningHeadDetector: RunningHeadDetecting {
         return RunningHeadObservation(
             noseX: noseX,
             noseY: noseY,
+            faceMinX: Double(box.origin.x),
+            faceMinY: Double(box.origin.y),
             faceWidth: Double(box.size.width),
             faceHeight: Double(box.size.height),
             confidence: Double(observation.confidence),
@@ -64,4 +66,3 @@ final class RunningHeadDetector: RunningHeadDetecting {
         )
     }
 }
-
