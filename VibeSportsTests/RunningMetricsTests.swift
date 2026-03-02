@@ -9,6 +9,7 @@ final class RunningMetricsTests: XCTestCase {
         metrics.configuration.stepDetectorConfiguration.hysteresisRatio = 0.02
         metrics.configuration.stepDetectorConfiguration.minStepInterval = 0.0
         metrics.configuration.stepDetectorConfiguration.baselineSmoothingAlpha = 0
+        metrics.configuration.stepDetectorConfiguration.baselineFaceHeightSmoothingAlpha = 0
         metrics.configuration.cadenceConfiguration.minStepInterval = 0.0
 
         let faceHeight = 0.20
@@ -47,6 +48,7 @@ final class RunningMetricsTests: XCTestCase {
         metrics.configuration.stepDetectorConfiguration.hysteresisRatio = 0.02
         metrics.configuration.stepDetectorConfiguration.minStepInterval = 0.5
         metrics.configuration.stepDetectorConfiguration.baselineSmoothingAlpha = 0
+        metrics.configuration.stepDetectorConfiguration.baselineFaceHeightSmoothingAlpha = 0
 
         let faceHeight = 0.20
         let baseY = 0.50
@@ -84,6 +86,7 @@ final class RunningMetricsTests: XCTestCase {
         metrics.configuration.stepDetectorConfiguration.hysteresisRatio = 0.02
         metrics.configuration.stepDetectorConfiguration.minStepInterval = 0.0
         metrics.configuration.stepDetectorConfiguration.baselineSmoothingAlpha = 0
+        metrics.configuration.stepDetectorConfiguration.baselineFaceHeightSmoothingAlpha = 0
         metrics.configuration.cadenceConfiguration.holdDuration = 1.0
         metrics.configuration.cadenceConfiguration.decayDuration = 1.0
 

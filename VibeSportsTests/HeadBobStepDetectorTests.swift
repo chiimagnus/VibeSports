@@ -8,6 +8,7 @@ final class HeadBobStepDetectorTests: XCTestCase {
         detector.configuration.hysteresisRatio = 0.02
         detector.configuration.minStepInterval = 0.0
         detector.configuration.baselineSmoothingAlpha = 0
+        detector.configuration.baselineFaceHeightSmoothingAlpha = 0
 
         let faceHeight = 0.20
         let baseY = 0.50
@@ -39,6 +40,7 @@ final class HeadBobStepDetectorTests: XCTestCase {
         detector.configuration.hysteresisRatio = 0.02
         detector.configuration.minStepInterval = 0.5
         detector.configuration.baselineSmoothingAlpha = 0
+        detector.configuration.baselineFaceHeightSmoothingAlpha = 0
 
         let faceHeight = 0.20
         let baseY = 0.50
@@ -80,6 +82,7 @@ final class HeadBobStepDetectorTests: XCTestCase {
         detector.configuration.minStepInterval = 0.0
         detector.configuration.minConfidence = 0.7
         detector.configuration.baselineSmoothingAlpha = 0
+        detector.configuration.baselineFaceHeightSmoothingAlpha = 0
 
         let base = Date(timeIntervalSince1970: 0)
 

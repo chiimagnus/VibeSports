@@ -12,6 +12,8 @@ struct HeadBobStepDetector: Sendable, Equatable {
         var minConfidence: Double = 0.15
 
         var baselineSmoothingAlpha: Double = 0.01
+        /// Separately smooth the baseline scale used for normalization so forward/back movement doesn't break amplitude.
+        var baselineFaceHeightSmoothingAlpha: Double = 0.03
         /// Only update the baseline when very close to baseline, otherwise it will "chase" the bob and erase amplitude.
         var baselineUpdateMaxDisplacementRatio: Double = 0.004
     }
@@ -27,12 +29,14 @@ struct HeadBobStepDetector: Sendable, Equatable {
     private(set) var stepCount: Int = 0
 
     private var baselineNoseY: Double?
+    private var baselineFaceHeight: Double?
     private var phase: Phase = .neutral
     private var lastStepTime: Date?
 
     mutating func reset() {
         stepCount = 0
         baselineNoseY = nil
+        baselineFaceHeight = nil
         phase = .neutral
         lastStepTime = nil
     }
@@ -53,14 +57,21 @@ struct HeadBobStepDetector: Sendable, Equatable {
 
         if baselineNoseY == nil {
             baselineNoseY = observation.noseY
+            baselineFaceHeight = faceHeight
             phase = .neutral
             return nil
         }
 
         let baseline = baselineNoseY ?? observation.noseY
-        let displacementRatio = (observation.noseY - baseline) / faceHeight
+        let normalizationHeight = max(0.0001, baselineFaceHeight ?? faceHeight)
+        let displacementRatio = (observation.noseY - baseline) / normalizationHeight
 
-        updateBaselineIfNeeded(observation: observation, displacementRatio: displacementRatio, phase: phase)
+        updateBaselineIfNeeded(
+            observation: observation,
+            faceHeight: faceHeight,
+            displacementRatio: displacementRatio,
+            phase: phase
+        )
 
         let threshold = max(0, configuration.minAmplitudeRatio)
         let hysteresis = min(max(0, configuration.hysteresisRatio), threshold)
@@ -123,10 +134,18 @@ struct HeadBobStepDetector: Sendable, Equatable {
 
     private mutating func updateBaselineIfNeeded(
         observation: RunningHeadObservation,
+        faceHeight: Double,
         displacementRatio: Double,
         phase: Phase
     ) {
         guard phase == .neutral else { return }
+
+        let faceAlpha = min(1, max(0, configuration.baselineFaceHeightSmoothingAlpha))
+        if faceAlpha > 0 {
+            let current = baselineFaceHeight ?? faceHeight
+            baselineFaceHeight = (1 - faceAlpha) * current + faceAlpha * faceHeight
+        }
+
         let maxUpdateRatio = max(0, configuration.baselineUpdateMaxDisplacementRatio)
         guard abs(displacementRatio) <= maxUpdateRatio else { return }
 
