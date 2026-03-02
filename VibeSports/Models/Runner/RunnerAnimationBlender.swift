@@ -4,7 +4,6 @@ struct RunnerAnimationBlend: Sendable, Equatable {
     var idleWeight: Double
     var slowRunWeight: Double
     var fastRunWeight: Double
-    var playbackRate: Double
 }
 
 struct RunnerAnimationBlender: Sendable, Equatable {
@@ -12,10 +11,6 @@ struct RunnerAnimationBlender: Sendable, Equatable {
         var idleThresholdMetersPerSecond: Double = 0.10
         var minRunSpeedMetersPerSecond: Double = 1.50
         var maxRunSpeedMetersPerSecond: Double = 4.50
-
-        var baseSpeedMetersPerSecond: Double = 2.00
-        var minPlaybackRate: Double = 0.30
-        var maxPlaybackRate: Double = 3.00
     }
 
     var configuration = Configuration()
@@ -47,14 +42,10 @@ struct RunnerAnimationBlender: Sendable, Equatable {
             fastWeight = t
         }
 
-        let playbackRate = (speed / max(0.0001, configuration.baseSpeedMetersPerSecond))
-            .clamped(to: configuration.minPlaybackRate...configuration.maxPlaybackRate)
-
         return RunnerAnimationBlend(
             idleWeight: idleWeight,
             slowRunWeight: slowWeight,
-            fastRunWeight: fastWeight,
-            playbackRate: playbackRate
+            fastRunWeight: fastWeight
         )
     }
 }
@@ -64,4 +55,3 @@ private extension Double {
         min(max(self, range.lowerBound), range.upperBound)
     }
 }
-

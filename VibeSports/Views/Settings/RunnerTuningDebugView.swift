@@ -43,16 +43,10 @@ struct RunnerTuningDebugView: View {
                     in: 0.2...2.0,
                     format: "%.2f"
                 )
-                slider(
-                    "Steps / Loop",
-                    value: $debugTools.runnerTuning.cadence.stepsPerLoop,
-                    in: 0.5...4.0,
-                    format: "%.2f"
-                )
             } header: {
                 Text("Cadence Motion")
             } footer: {
-                Text("Stride 用于 cadence→speed 映射（speed = cadence * stride）；Steps/Loop 用于 cadence→动画速率映射。")
+                Text("Stride 用于 cadence→speed 映射（speed = cadence * stride）。")
                     .foregroundStyle(.secondary)
             }
 
@@ -76,18 +70,6 @@ struct RunnerTuningDebugView: View {
                     format: "%.2f"
                 )
                 slider(
-                    "Min Rate",
-                    value: $debugTools.runnerTuning.blender.minPlaybackRate,
-                    in: 0.0...2.0,
-                    format: "%.2f"
-                )
-                slider(
-                    "Max Rate",
-                    value: $debugTools.runnerTuning.blender.maxPlaybackRate,
-                    in: 0.5...6.0,
-                    format: "%.2f"
-                )
-                slider(
                     "Speed Smooth α",
                     value: $debugTools.runnerTuning.speedSmoothingAlpha,
                     in: 0.0...1.0,
@@ -96,7 +78,7 @@ struct RunnerTuningDebugView: View {
             } header: {
                 Text("Animation Blend")
             } footer: {
-                Text("Idle Threshold：低于该速度时偏向 idle；Min/Max Run Speed：slow↔fast 的混合区间；Min/Max Rate：播放速率夹紧范围；Speed Smooth α：速度低通滤波强度（越大越灵敏，越小越平滑）。")
+                Text("Idle Threshold：低于该速度时偏向 idle；Min/Max Run Speed：slow↔fast 的混合区间；Speed Smooth α：速度低通滤波强度（越大越灵敏，越小越平滑）。")
                     .foregroundStyle(.secondary)
             }
         }
