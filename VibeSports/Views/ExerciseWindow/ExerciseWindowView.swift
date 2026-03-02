@@ -152,7 +152,9 @@ struct ExerciseWindowView: View {
                 Text("\(kind.title) • Calibrating…")
             case .running(let kind):
                 if kind == .running {
-                    Text("Running • \(String(format: "%.1f", viewModel.runningSession.metrics.speedKilometersPerHour)) km/h")
+                    let steps = viewModel.runningSession.metrics.steps
+                    let spm = Int(viewModel.runningSession.metrics.cadenceStepsPerMinute.rounded())
+                    Text("Running • \(steps) steps • \(spm) spm")
                 } else {
                     Text("\(kind.title) • Running")
                 }

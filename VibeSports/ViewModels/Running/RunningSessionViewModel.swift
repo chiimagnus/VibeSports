@@ -37,7 +37,6 @@ final class RunningSessionViewModel: ObservableObject {
             cadenceStepsPerSecond: 0,
             cadenceStepsPerMinute: 0,
             speedMetersPerSecond: 0,
-            speedKilometersPerHour: 0,
             steps: 0,
             isCloseUpMode: false,
             shoulderDistance: nil
@@ -110,7 +109,6 @@ final class RunningSessionViewModel: ObservableObject {
             cadenceStepsPerSecond: 0,
             cadenceStepsPerMinute: 0,
             speedMetersPerSecond: 0,
-            speedKilometersPerHour: 0,
             steps: 0,
             isCloseUpMode: false,
             shoulderDistance: nil

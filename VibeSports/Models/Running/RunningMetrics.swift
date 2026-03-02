@@ -1,4 +1,3 @@
-import CoreGraphics
 import Foundation
 
 struct RunningMetricsSnapshot: Sendable, Equatable {
@@ -7,7 +6,6 @@ struct RunningMetricsSnapshot: Sendable, Equatable {
     var cadenceStepsPerSecond: Double
     var cadenceStepsPerMinute: Double
     var speedMetersPerSecond: Double
-    var speedKilometersPerHour: Double
     var steps: Int
     var isCloseUpMode: Bool
     var shoulderDistance: Double?
@@ -54,7 +52,6 @@ struct RunningMetrics: Sendable, Equatable {
         cadenceModel.update(now: now, isTracking: observation?.isDetected == true)
 
         let speedMetersPerSecond = cadenceModel.cadenceStepsPerSecond * max(0, configuration.strideLengthMetersPerStep)
-        let speedKmh = speedMetersPerSecond * 3.6
 
         return RunningMetricsSnapshot(
             poseDetected: observation?.isDetected == true,
@@ -62,7 +59,6 @@ struct RunningMetrics: Sendable, Equatable {
             cadenceStepsPerSecond: cadenceModel.cadenceStepsPerSecond,
             cadenceStepsPerMinute: cadenceModel.cadenceStepsPerMinute,
             speedMetersPerSecond: speedMetersPerSecond,
-            speedKilometersPerHour: speedKmh,
             steps: stepDetector.stepCount,
             isCloseUpMode: false,
             shoulderDistance: nil
