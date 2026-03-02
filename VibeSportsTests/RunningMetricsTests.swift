@@ -2,116 +2,129 @@ import XCTest
 @testable import VibeSports
 
 final class RunningMetricsTests: XCTestCase {
-    func test_speedIncreasesWhenMovementQualityHigh() {
+    func test_stepsIncreaseOnHeadBobCycles() {
         var metrics = RunningMetrics()
-        let t0 = Date(timeIntervalSince1970: 0)
-        var latestSnapshot: RunningMetricsSnapshot?
+        metrics.configuration.strideLengthMetersPerStep = 1.0
+        metrics.configuration.stepDetectorConfiguration.minAmplitudeRatio = 0.15
+        metrics.configuration.stepDetectorConfiguration.hysteresisRatio = 0.02
+        metrics.configuration.stepDetectorConfiguration.minStepInterval = 0.0
+        metrics.configuration.stepDetectorConfiguration.baselineSmoothingAlpha = 0
+        metrics.configuration.cadenceConfiguration.minStepInterval = 0.0
 
-        latestSnapshot = metrics.ingest(
-            pose: Self.pose(leftWrist: .init(x: 0.4, y: 0.4), rightWrist: .init(x: 0.6, y: 0.4)),
-            now: t0
-        )
+        let faceHeight = 0.20
+        let baseY = 0.50
+        let base = Date(timeIntervalSince1970: 0)
 
-        var now = t0
-        for i in 1...20 {
-            now = Date(timeIntervalSince1970: TimeInterval(i) * 0.05)
-            let dy = (i % 2 == 0) ? 0.08 : -0.08
-            latestSnapshot = metrics.ingest(
-                pose: Self.pose(
-                    leftWrist: .init(x: 0.4, y: 0.4 + dy),
-                    rightWrist: .init(x: 0.6, y: 0.4 - dy)
-                ),
-                now: now
+        func obs(_ y: Double) -> RunningHeadObservation {
+            RunningHeadObservation(
+                noseX: 0.5,
+                noseY: y,
+                faceWidth: 0.2,
+                faceHeight: faceHeight,
+                confidence: 1.0,
+                isDetected: true
             )
         }
 
-        XCTAssertGreaterThan(latestSnapshot?.cadenceStepsPerSecond ?? 0, 0)
-        XCTAssertGreaterThan(latestSnapshot?.speedMetersPerSecond ?? 0, 0)
-        XCTAssertEqual(latestSnapshot?.motion.forwardInput ?? 1, 0, accuracy: 0.0001)
-        XCTAssertEqual(latestSnapshot?.motion.turnInput ?? 1, 0, accuracy: 0.0001)
-        XCTAssertEqual(latestSnapshot?.motion.headingYaw ?? 1, 0, accuracy: 0.0001)
+        _ = metrics.ingest(observation: obs(baseY), now: base)
+
+        // Step 1 (up+down).
+        _ = metrics.ingest(observation: obs(baseY + 0.04), now: base.addingTimeInterval(0.10))
+        _ = metrics.ingest(observation: obs(baseY - 0.04), now: base.addingTimeInterval(0.20))
+
+        // Step 2 (up+down).
+        _ = metrics.ingest(observation: obs(baseY + 0.04), now: base.addingTimeInterval(0.30))
+        let snapshot = metrics.ingest(observation: obs(baseY - 0.04), now: base.addingTimeInterval(0.40))
+
+        XCTAssertEqual(snapshot.steps, 2)
+        XCTAssertGreaterThan(snapshot.cadenceStepsPerSecond, 0)
+        XCTAssertGreaterThan(snapshot.speedMetersPerSecond, 0)
     }
 
-    func test_speedDecaysToZeroWhenNoPose() {
+    func test_minStepIntervalFiltersRapidCycles() {
         var metrics = RunningMetrics()
-        let t0 = Date(timeIntervalSince1970: 0)
-        var latestSnapshot: RunningMetricsSnapshot?
+        metrics.configuration.stepDetectorConfiguration.minAmplitudeRatio = 0.15
+        metrics.configuration.stepDetectorConfiguration.hysteresisRatio = 0.02
+        metrics.configuration.stepDetectorConfiguration.minStepInterval = 0.5
+        metrics.configuration.stepDetectorConfiguration.baselineSmoothingAlpha = 0
 
-        latestSnapshot = metrics.ingest(
-            pose: Self.pose(leftWrist: .init(x: 0.4, y: 0.5), rightWrist: .init(x: 0.6, y: 0.3)),
-            now: t0
-        )
-        latestSnapshot = metrics.ingest(
-            pose: Self.pose(leftWrist: .init(x: 0.4, y: 0.3), rightWrist: .init(x: 0.6, y: 0.5)),
-            now: Date(timeIntervalSince1970: 0.05)
-        )
+        let faceHeight = 0.20
+        let baseY = 0.50
+        let base = Date(timeIntervalSince1970: 0)
 
-        for i in 1...80 {
-            latestSnapshot = metrics.ingest(
-                pose: nil,
-                now: Date(timeIntervalSince1970: 0.05 + TimeInterval(i) * 0.05)
+        func obs(_ y: Double) -> RunningHeadObservation {
+            RunningHeadObservation(
+                noseX: 0.5,
+                noseY: y,
+                faceWidth: 0.2,
+                faceHeight: faceHeight,
+                confidence: 1.0,
+                isDetected: true
             )
         }
 
-        XCTAssertEqual(latestSnapshot?.cadenceStepsPerSecond ?? 0, 0, accuracy: 0.0001)
-        XCTAssertEqual(latestSnapshot?.speedMetersPerSecond ?? 0, 0, accuracy: 0.0001)
+        _ = metrics.ingest(observation: obs(baseY), now: base)
+
+        // First step counts.
+        _ = metrics.ingest(observation: obs(baseY + 0.04), now: base.addingTimeInterval(0.10))
+        _ = metrics.ingest(observation: obs(baseY - 0.04), now: base.addingTimeInterval(0.20))
+
+        // Second step too soon (filtered).
+        _ = metrics.ingest(observation: obs(baseY + 0.04), now: base.addingTimeInterval(0.30))
+        let snapshot = metrics.ingest(observation: obs(baseY - 0.04), now: base.addingTimeInterval(0.40))
+
+        XCTAssertEqual(snapshot.steps, 1)
     }
 
-    func test_stepsIncreaseWhenArmPhaseAlternates() {
-        var metrics = RunningMetrics()
-        metrics.stepDetector.configuration.minStepInterval = 0.01
-        metrics.stepDetector.configuration.minQualityToCountStep = 0
-
+    func test_lostTrackingHoldsThenDecaysCadenceToZero() {
         let base = Date(timeIntervalSince1970: 0)
-        _ = metrics.ingest(pose: Self.pose(leftWrist: .init(x: 0.4, y: 0.6), rightWrist: .init(x: 0.6, y: 0.4)), now: base)
-        _ = metrics.ingest(pose: Self.pose(leftWrist: .init(x: 0.4, y: 0.4), rightWrist: .init(x: 0.6, y: 0.6)), now: base.addingTimeInterval(0.05))
-        _ = metrics.ingest(pose: Self.pose(leftWrist: .init(x: 0.4, y: 0.6), rightWrist: .init(x: 0.6, y: 0.4)), now: base.addingTimeInterval(0.10))
-
-        XCTAssertGreaterThanOrEqual(metrics.stepDetector.stepCount, 2)
-    }
-
-    func test_stepDetectorReturnsEventWhenStepCounted() {
-        var detector = RunningStepDetector()
-        detector.configuration.minStepInterval = 0.01
-        detector.configuration.minQualityToCountStep = 0
-
-        let base = Date(timeIntervalSince1970: 0)
-        _ = detector.ingest(
-            pose: Self.pose(leftWrist: .init(x: 0.4, y: 0.6), rightWrist: .init(x: 0.6, y: 0.4)),
-            movementQuality: 1,
-            now: base
-        )
-
-        let event = detector.ingest(
-            pose: Self.pose(leftWrist: .init(x: 0.4, y: 0.4), rightWrist: .init(x: 0.6, y: 0.6)),
-            movementQuality: 1,
-            now: base.addingTimeInterval(0.05)
-        )
-
-        XCTAssertNotNil(event)
-        XCTAssertNotNil(event?.intervalSincePreviousStep)
-    }
-
-    func test_closeUpModeUsesShoulderDistance() {
         var metrics = RunningMetrics()
-        metrics.configuration.closeUpShoulderDistanceThreshold = 0.2
-        metrics.configuration.closeUpUpperBodyConfidenceThreshold = 0
+        metrics.configuration.strideLengthMetersPerStep = 1.0
+        metrics.configuration.stepDetectorConfiguration.minAmplitudeRatio = 0.15
+        metrics.configuration.stepDetectorConfiguration.hysteresisRatio = 0.02
+        metrics.configuration.stepDetectorConfiguration.minStepInterval = 0.0
+        metrics.configuration.stepDetectorConfiguration.baselineSmoothingAlpha = 0
+        metrics.configuration.cadenceConfiguration.holdDuration = 1.0
+        metrics.configuration.cadenceConfiguration.decayDuration = 1.0
 
-        let pose = Pose(joints: [
-            .leftShoulder: PoseJoint(location: .init(x: 0.2, y: 0.5), confidence: 1),
-            .rightShoulder: PoseJoint(location: .init(x: 0.5, y: 0.5), confidence: 1),
-            .leftWrist: PoseJoint(location: .init(x: 0.2, y: 0.3), confidence: 1),
-            .rightWrist: PoseJoint(location: .init(x: 0.5, y: 0.3), confidence: 1),
-        ])
+        let faceHeight = 0.20
+        let baseY = 0.50
 
-        let snapshot = metrics.ingest(pose: pose, now: Date(timeIntervalSince1970: 0))
-        XCTAssertTrue(snapshot.isCloseUpMode)
-    }
+        func obs(_ y: Double) -> RunningHeadObservation {
+            RunningHeadObservation(
+                noseX: 0.5,
+                noseY: y,
+                faceWidth: 0.2,
+                faceHeight: faceHeight,
+                confidence: 1.0,
+                isDetected: true
+            )
+        }
 
-    private static func pose(leftWrist: CGPoint, rightWrist: CGPoint) -> Pose {
-        Pose(joints: [
-            .leftWrist: PoseJoint(location: leftWrist, confidence: 1),
-            .rightWrist: PoseJoint(location: rightWrist, confidence: 1),
-        ])
+        _ = metrics.ingest(observation: obs(baseY), now: base)
+        // Step 1.
+        _ = metrics.ingest(observation: obs(baseY + 0.04), now: base.addingTimeInterval(0.10))
+        _ = metrics.ingest(observation: obs(baseY - 0.04), now: base.addingTimeInterval(0.20))
+        // Step 2 (creates cadence).
+        _ = metrics.ingest(observation: obs(baseY + 0.04), now: base.addingTimeInterval(0.70))
+        let tracked = metrics.ingest(observation: obs(baseY - 0.04), now: base.addingTimeInterval(0.80))
+
+        XCTAssertGreaterThan(tracked.cadenceStepsPerSecond, 0)
+        let startCadence = tracked.cadenceStepsPerSecond
+
+        // Tracking lost: cadence holds.
+        let held = metrics.ingest(observation: nil, now: base.addingTimeInterval(0.9))
+        XCTAssertEqual(held.cadenceStepsPerSecond, startCadence, accuracy: 0.0001)
+
+        // Decay after hold.
+        let stillHeld = metrics.ingest(observation: nil, now: base.addingTimeInterval(1.7))
+        XCTAssertEqual(stillHeld.cadenceStepsPerSecond, startCadence, accuracy: 0.0001)
+
+        let decaying = metrics.ingest(observation: nil, now: base.addingTimeInterval(2.2))
+        XCTAssertLessThan(decaying.cadenceStepsPerSecond, startCadence)
+        XCTAssertGreaterThan(decaying.cadenceStepsPerSecond, 0)
+
+        let zeroed = metrics.ingest(observation: nil, now: base.addingTimeInterval(3.1))
+        XCTAssertEqual(zeroed.cadenceStepsPerSecond, 0, accuracy: 0.0001)
     }
 }
