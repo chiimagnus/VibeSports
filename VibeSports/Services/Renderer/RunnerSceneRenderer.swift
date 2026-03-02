@@ -533,18 +533,10 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
         slowRunPlayer.blendFactor = blend.slowRunWeight
         fastRunPlayer.blendFactor = blend.fastRunWeight
 
-        let stepsPerLoop = max(0.1, tuning.cadence.stepsPerLoop)
-        let cadenceRate = cadenceStepsPerSecond / stepsPerLoop
-
-        func rate(for player: SCNAnimationPlayer) -> Double {
-            guard cadenceRate > 0 else { return 1 }
-            let duration = max(0.0001, player.animation.duration)
-            let raw = cadenceRate * duration
-            return min(tuning.blender.maxPlaybackRate, max(tuning.blender.minPlaybackRate, raw))
-        }
-
-        slowRunPlayer.speed = rate(for: slowRunPlayer)
-        fastRunPlayer.speed = rate(for: fastRunPlayer)
+        _ = cadenceStepsPerSecond
+        idlePlayer.speed = 1.0
+        slowRunPlayer.speed = 1.0
+        fastRunPlayer.speed = 1.0
     }
 
     var tuning: RunnerSceneRenderer.Tuning {
