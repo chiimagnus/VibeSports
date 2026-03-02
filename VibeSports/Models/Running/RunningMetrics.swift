@@ -91,7 +91,7 @@ struct RunningMetrics: Sendable, Equatable {
                 intervalSincePreviousStep: stepEvent.intervalSincePreviousStep
             )
         }
-        cadenceModel.update(now: now)
+        cadenceModel.update(now: now, isTracking: poseDetected)
 
         let speedMetersPerSecond = cadenceModel.cadenceStepsPerSecond * max(0, configuration.strideLengthMetersPerStep)
         let speedKmh = speedMetersPerSecond * 3.6
