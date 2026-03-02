@@ -6,13 +6,14 @@ struct HeadBobStepDetector: Sendable, Equatable {
     }
 
     struct Configuration: Sendable, Equatable {
-        var minAmplitudeRatio: Double = 0.05
-        var hysteresisRatio: Double = 0.01
-        var minStepInterval: TimeInterval = 0.25
-        var minConfidence: Double = 0.25
+        var minAmplitudeRatio: Double = 0.015
+        var hysteresisRatio: Double = 0.004
+        var minStepInterval: TimeInterval = 0.20
+        var minConfidence: Double = 0.15
 
-        var baselineSmoothingAlpha: Double = 0.02
-        var baselineUpdateMaxDisplacementRatio: Double = 0.02
+        var baselineSmoothingAlpha: Double = 0.01
+        /// Only update the baseline when very close to baseline, otherwise it will "chase" the bob and erase amplitude.
+        var baselineUpdateMaxDisplacementRatio: Double = 0.004
     }
 
     enum Phase: Sendable, Equatable {
@@ -59,7 +60,7 @@ struct HeadBobStepDetector: Sendable, Equatable {
         let baseline = baselineNoseY ?? observation.noseY
         let displacementRatio = (observation.noseY - baseline) / faceHeight
 
-        updateBaselineIfNeeded(observation: observation, displacementRatio: displacementRatio)
+        updateBaselineIfNeeded(observation: observation, displacementRatio: displacementRatio, phase: phase)
 
         let threshold = max(0, configuration.minAmplitudeRatio)
         let hysteresis = min(max(0, configuration.hysteresisRatio), threshold)
@@ -120,7 +121,12 @@ struct HeadBobStepDetector: Sendable, Equatable {
         return StepEvent(intervalSincePreviousStep: intervalSincePreviousStep)
     }
 
-    private mutating func updateBaselineIfNeeded(observation: RunningHeadObservation, displacementRatio: Double) {
+    private mutating func updateBaselineIfNeeded(
+        observation: RunningHeadObservation,
+        displacementRatio: Double,
+        phase: Phase
+    ) {
+        guard phase == .neutral else { return }
         let maxUpdateRatio = max(0, configuration.baselineUpdateMaxDisplacementRatio)
         guard abs(displacementRatio) <= maxUpdateRatio else { return }
 
