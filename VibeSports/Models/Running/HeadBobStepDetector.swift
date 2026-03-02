@@ -6,13 +6,13 @@ struct HeadBobStepDetector: Sendable, Equatable {
     }
 
     struct Configuration: Sendable, Equatable {
-        var minAmplitudeRatio: Double = 0.12
-        var hysteresisRatio: Double = 0.03
+        var minAmplitudeRatio: Double = 0.05
+        var hysteresisRatio: Double = 0.01
         var minStepInterval: TimeInterval = 0.25
-        var minConfidence: Double = 0.35
+        var minConfidence: Double = 0.25
 
-        var baselineSmoothingAlpha: Double = 0.03
-        var baselineUpdateMaxDisplacementRatio: Double = 0.06
+        var baselineSmoothingAlpha: Double = 0.02
+        var baselineUpdateMaxDisplacementRatio: Double = 0.02
     }
 
     enum Phase: Sendable, Equatable {
