@@ -52,12 +52,6 @@ struct ExerciseHubView: View {
             }
             .padding(16)
 
-            if viewModel.sessionState.kind == .running && !viewModel.sessionState.isIdle {
-                if case .calibrating(let progress, let message) = viewModel.runningSession.state {
-                    RunningCalibrationOverlayView(progress: progress, message: message)
-                }
-            }
-
             if viewModel.sessionState.isIdle {
                 idleOverlay
             }
@@ -230,7 +224,7 @@ struct ExerciseHubView: View {
     private var idleSubtitle: String {
         switch viewModel.selectedExerciseKind {
         case .running:
-            return "Press Start to calibrate, then use pose detection to drive the 3D scene."
+            return "Press Start to begin Running (head-only detection)."
         case .boxing:
             return "Press Start to calibrate and begin Boxing."
         }

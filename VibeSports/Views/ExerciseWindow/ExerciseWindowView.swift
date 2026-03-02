@@ -35,12 +35,6 @@ struct ExerciseWindowView: View {
             )
             .frame(width: 1, height: 1)
             .opacity(0.01)
-
-            if viewModel.sessionState.kind == .running && !viewModel.sessionState.isIdle {
-                if case .calibrating(let progress, let message) = viewModel.runningSession.state {
-                    RunningCalibrationOverlayView(progress: progress, message: message)
-                }
-            }
         }
         .background(.black.opacity(0.06))
         .overlay(alignment: .topLeading) {
