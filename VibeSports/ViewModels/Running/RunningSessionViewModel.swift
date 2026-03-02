@@ -21,11 +21,10 @@ final class RunningSessionViewModel: ObservableObject {
     private let clock: any Clock
 
     private var runningMetrics = RunningMetrics()
-    private var upperBodyCalibration = UpperBodyCalibration(configuration: .init(mode: .generic))
 
-    private var latestControlPose: Pose?
+    private var latestHeadObservation: RunningHeadObservation?
 
-    private var headSteeringSignal = HeadSteeringSignal()
+    private var headSteeringSignal = RunningHeadSteeringSignal()
     private var keyboardDebugInputState = KeyboardDebugInputState()
     private var controlComposer = RunnerControlComposer(mode: .mixed)
 
@@ -38,7 +37,6 @@ final class RunningSessionViewModel: ObservableObject {
             cadenceStepsPerSecond: 0,
             cadenceStepsPerMinute: 0,
             speedMetersPerSecond: 0,
-            speedKilometersPerHour: 0,
             steps: 0,
             isCloseUpMode: false,
             shoulderDistance: nil
@@ -89,12 +87,10 @@ final class RunningSessionViewModel: ObservableObject {
 
     func start() {
         runningMetrics.reset()
-        runningMetrics.setCalibrationBaselineShoulderDistance(nil)
         keyboardDebugInputState.reset()
-        latestControlPose = nil
+        latestHeadObservation = nil
 
-        upperBodyCalibration.reset()
-        state = .calibrating(progress: 0, message: "Calibrating…")
+        state = .running
 
         sceneRenderer.reset()
         sceneRenderer.setMotion(.zero)
@@ -105,7 +101,7 @@ final class RunningSessionViewModel: ObservableObject {
         sceneRenderer.reset()
         runningMetrics.reset()
         keyboardDebugInputState.reset()
-        latestControlPose = nil
+        latestHeadObservation = nil
 
         metrics = RunningMetricsSnapshot(
             poseDetected: false,
@@ -113,15 +109,14 @@ final class RunningSessionViewModel: ObservableObject {
             cadenceStepsPerSecond: 0,
             cadenceStepsPerMinute: 0,
             speedMetersPerSecond: 0,
-            speedKilometersPerHour: 0,
             steps: 0,
             isCloseUpMode: false,
             shoulderDistance: nil
         )
     }
 
-    func ingest(rawPose: Pose?, controlPose: Pose?) {
-        latestControlPose = controlPose
+    func ingest(headObservation: RunningHeadObservation?) {
+        latestHeadObservation = headObservation
         let now = clock.now
 
         switch state {
@@ -129,21 +124,13 @@ final class RunningSessionViewModel: ObservableObject {
             return
 
         case .calibrating:
-            let out = upperBodyCalibration.ingest(pose: controlPose, now: now)
-            if let baseline = out.baseline {
-                runningMetrics.setCalibrationBaselineShoulderDistance(baseline.shoulderDistance)
-                state = .running
-                return
-            }
-            state = .calibrating(progress: out.progress, message: (out.issue?.message ?? "Calibrating…"))
-
-            sceneRenderer.setMotion(.zero)
+            state = .running
             return
 
         case .running:
-            let snapshot = runningMetrics.ingest(pose: rawPose, now: now)
+            let snapshot = runningMetrics.ingest(observation: headObservation, now: now)
             metrics = snapshot
-            sceneRenderer.setMotion(makeMotion(from: snapshot, pose: controlPose))
+            sceneRenderer.setMotion(makeMotion(from: snapshot, headObservation: headObservation))
         }
     }
 
@@ -153,13 +140,13 @@ final class RunningSessionViewModel: ObservableObject {
             return
         }
 
-        let motion = makeMotion(from: metrics, pose: latestControlPose)
+        let motion = makeMotion(from: metrics, headObservation: latestHeadObservation)
         sceneRenderer.setMotion(motion)
     }
 
-    private func makeMotion(from snapshot: RunningMetricsSnapshot, pose: Pose?) -> RunnerMotion {
+    private func makeMotion(from snapshot: RunningMetricsSnapshot, headObservation: RunningHeadObservation?) -> RunnerMotion {
         let cameraInput = RunnerControlInput(
-            turnInput: headSteeringSignal.turnInput(from: pose),
+            turnInput: headSteeringSignal.turnInput(from: headObservation),
             forwardInput: snapshot.speedMetersPerSecond > 0.05 ? 1 : 0
         )
         let keyboardInput = keyboardDebugInputState.controlInput

@@ -2,7 +2,7 @@
 
 ## 项目概览
 
-VibeSports 是一个 macOS 原生的「摄像头运动游戏」：用户开始会话后，摄像头采集视频帧 → Apple Vision 姿态估计 → 计算速度/步数/热量/出拳事件 → 驱动 SceneKit 无限场景渲染（Running）或 Debug 预览（Boxing）。UI 使用 SwiftUI；业务与状态按 MVVM 组织；事件流/异步用 Combine；设置持久化用 SwiftData。会话通常围绕 `Idle/Calibrating/Running/Stopped` 状态切换，结束会话需停止检测并释放摄像头资源。当前工程配置为 **macOS 14+ / Swift 6**。
+VibeSports 是一个 macOS 原生的「摄像头运动游戏」：用户开始会话后，摄像头采集视频帧 → Apple Vision 视觉估计（Running：面部关键点；Boxing：人体姿态）→ 计算步数/步频/热量/出拳事件 → 驱动 SceneKit 无限场景渲染（Running）或 Debug 预览（Boxing）。UI 使用 SwiftUI；业务与状态按 MVVM 组织；事件流/异步用 Combine；设置持久化用 SwiftData。会话通常围绕 `Idle/Calibrating/Running` 状态切换（Calibrating 仅 Boxing），结束会话需停止检测并释放摄像头资源。当前工程配置为 **macOS 14+ / Swift 6**。
 
 ## 项目结构与模块组织
 
@@ -47,6 +47,7 @@ VibeSports/Services/FeatureX/
 ## 常见修改点
 
 - 姿态检测：`VibeSports/Services/PoseDetector.swift` 与 `VibeSports/Models/Pose/`
+- Running 头部检测：`VibeSports/Services/Running/RunningHeadDetector.swift` 与 `VibeSports/Models/Running/`
 - 摄像头采集：`VibeSports/Services/CameraSession.swift`
 - 3D 渲染：`VibeSports/Services/Renderer/` 与 `VibeSports/Views/Running/RunnerSceneView.swift`
 - 运动指标：`VibeSports/Models/Running/` 与 `VibeSports/ViewModels/Running/RunningSessionViewModel.swift`
@@ -62,3 +63,97 @@ VibeSports/Services/FeatureX/
 
 - 单个 PR 聚焦一个主题；在描述中写清“动机 + 验证方式”（测试输出、截图/录屏）
 - 涉及算法/计算逻辑变更时，优先补齐 `VibeSportsTests/` 对应测试用例
+
+
+## 核心技术栈
+
+- **架构模式**：MVVM (Model-View-ViewModel)
+- **编程范式**：Protocol-Oriented Programming (面向协议编程)
+- **UI 框架**：SwiftUI、RealityKit
+- **响应式/状态管理**：Observation（`@Observable` / `@Bindable`），必要时使用 Swift Concurrency；仅在需要 Publisher 管道时才引入 Combine
+- **数据持久化**：SwiftData
+- **语言版本**：Swift 6.0+
+- **支持平台**：macOS 14.0+
+- **测试框架**：XCTest
+- **调试日志**：使用 `os.Logger`，设置清晰的 subsystem 和 category，便于过滤和定位问题
+
+
+---
+
+## 设计原则
+
+### 核心原则
+
+- **组合优于继承** — 使用依赖注入
+- **接口优于单例** — 支持测试和灵活性
+- **显式优于隐式** — 清晰的数据流和依赖关系
+- **协议驱动** — 面向协议而非实现，消除 switch 语句
+
+### 简洁原则
+
+- **KISS** — 保持简单，能用简单方案就不用复杂方案
+- **YAGNI** — 不为"将来可能需要"的功能写代码
+- **DRY + WET** — 避免重复，但也别过早抽象（重复 2-3 次再考虑）
+
+### 职责分离
+
+- **SRP（单一职责）** — 一个类/函数只做一件事
+- **DIP（依赖倒置）** — 依赖抽象而非具体实现
+- **SoC（关注点分离）** — 不同功能的代码分开放
+
+---
+
+## MVVM 架构规范
+
+### 职责划分
+
+**Model** — 纯数据结构，不含业务逻辑（禁止引用 SwiftUI / Observation / Combine）
+
+**ViewModel** — 业务逻辑、状态管理、数据转换（禁止操作 UI、使用单例）
+
+**View** — 纯 UI 展示、用户交互响应（禁止处理业务逻辑、直接访问数据库）
+
+**Service** — 网络请求、数据存储等基础设施
+
+### ViewModel 规范
+
+**统一使用 `@Observable`（iOS 17+ / macOS 14.0+），不使用 `ObservableObject` + `@Published`。**
+
+**实例化策略：**
+
+- ✅ 按需创建：`@State`
+- ✅ 依赖注入：`.environment()`
+- ✅ 父子共享：父视图创建，通过 `@Bindable` 传递
+- ❌ 禁止单例：`static let shared`
+- ❌ 不使用：`@StateObject` / `@ObservedObject` / `.environmentObject()`（这些是 `ObservableObject` 时代的 API）
+
+---
+
+## 协议驱动开发
+
+### 原则
+
+1. **面向协议而非实现** — 优先定义协议，再实现具体类型
+2. **消除 switch 语句** — 用协议替代类型判断
+3. **可扩展性** — 添加新类型只需实现协议，不改现有代码
+
+### 示例
+
+```swift
+// ✅ 正确：协议定义统一接口
+protocol DataSourceProvider {
+    var displayName: String { get }
+    var filterNotification: Notification.Name { get }
+}
+
+// ✅ 正确：通过协议统一处理
+func process(_ provider: DataSourceProvider) {
+    let name = provider.displayName  // 无需 switch
+}
+
+// ❌ 错误：switch 根据类型判断
+switch source {
+		case .typeA: // ...
+		case .typeB: // ...  // 每加新类型都要改
+}
+```

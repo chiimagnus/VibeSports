@@ -9,6 +9,7 @@ final class ExerciseHubViewModel: ObservableObject {
     @Published private(set) var sessionState: ExerciseSessionState = .idle(selectedKind: .running)
     @Published private(set) var latestPose: Pose?
     @Published private(set) var boxingSession: BoxingSessionViewModel?
+    @Published private(set) var latestRunningHeadObservation: RunningHeadObservation?
 
     @Published private(set) var showPoseOverlay: Bool = false
     @Published private(set) var mirrorCamera: Bool = true
@@ -49,6 +50,12 @@ final class ExerciseHubViewModel: ObservableObject {
             }
             .store(in: &cancellables)
 
+        cameraSession.runningHeadPublisher
+            .sink { [weak self] observation in
+                self?.handleRunningHead(observation)
+            }
+            .store(in: &cancellables)
+
         loadSettings()
     }
 
@@ -64,10 +71,18 @@ final class ExerciseHubViewModel: ObservableObject {
         switch kind {
         case .running:
             boxingSession = nil
+            latestPose = nil
+            stabilizedPose = nil
+            latestRunningHeadObservation = nil
+            cameraSession.setAnalysisMode(.runningHeadOnly)
             runningSession.start()
-            sessionState = .calibrating(kind: .running)
+            sessionState = .running(kind: .running)
         case .boxing:
             boxingSession = BoxingSessionViewModel(clock: clock)
+            latestPose = nil
+            stabilizedPose = nil
+            latestRunningHeadObservation = nil
+            cameraSession.setAnalysisMode(.boxingPose)
             sessionState = .calibrating(kind: kind)
         }
 
@@ -97,6 +112,7 @@ final class ExerciseHubViewModel: ObservableObject {
         boxingSession = nil
         latestPose = nil
         stabilizedPose = nil
+        latestRunningHeadObservation = nil
     }
 
     private func loadSettings() {
@@ -132,7 +148,6 @@ final class ExerciseHubViewModel: ObservableObject {
         poseStabilizationEnabled = isEnabled
         poseStabilizer.reset()
         stabilizedPose = nil
-        runningSession.pushCurrentControlMotion()
         do {
             try settingsRepository.updatePoseStabilizationEnabled(isEnabled)
         } catch {}
@@ -168,24 +183,24 @@ final class ExerciseHubViewModel: ObservableObject {
     private func handlePose(_ pose: Pose?) {
         latestPose = pose
 
-        if poseStabilizationEnabled {
-            stabilizedPose = poseStabilizer.ingest(pose: pose, now: clock.now)
-        } else {
-            stabilizedPose = pose
-        }
+        if sessionState.kind == .boxing, !sessionState.isIdle {
+            if poseStabilizationEnabled {
+                stabilizedPose = poseStabilizer.ingest(pose: pose, now: clock.now)
+            } else {
+                stabilizedPose = pose
+            }
 
-        let poseForControl = poseStabilizationEnabled ? stabilizedPose : pose
-
-        guard !sessionState.isIdle else { return }
-        if sessionState.kind == .boxing {
+            let poseForControl = poseStabilizationEnabled ? stabilizedPose : pose
             boxingSession?.ingest(pose: poseForControl)
             runningSession.sceneRenderer.setMotion(.zero)
-            return
+        } else {
+            stabilizedPose = nil
         }
+    }
 
-        runningSession.ingest(rawPose: pose, controlPose: poseForControl)
-        if case .running = runningSession.state, case .calibrating(let kind) = sessionState, kind == .running {
-            sessionState = .running(kind: .running)
-        }
+    private func handleRunningHead(_ observation: RunningHeadObservation?) {
+        latestRunningHeadObservation = observation
+        guard !sessionState.isIdle, sessionState.kind == .running else { return }
+        runningSession.ingest(headObservation: observation)
     }
 }

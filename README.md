@@ -1,8 +1,9 @@
 # VibeSports 🏃🥊
 
 VibeSports is a macOS-native “camera exercise game” prototype (Running + Boxing):
-choose a mode in the Home window → click Start → open the Exercise window → calibrate → capture camera frames → estimate body pose with Apple Vision →
-compute movement signals / speed / steps / punches →
+choose a mode in the Home window → click Start → open the Exercise window → capture camera frames →
+estimate (Running: face landmarks; Boxing: body pose) with Apple Vision →
+compute movement signals / steps / cadence / punches →
 drive a third-person SceneKit forest world (Running) or a full-screen camera debug UI (Boxing).
 
 ## Why
@@ -24,14 +25,16 @@ like jumping jacks or squats—similar to fitness-tracking apps on phones, but o
 - UI: SwiftUI
 - State & orchestration: MVVM
 - Async/event flow: Combine
-- Pose estimation: Vision
+- Vision input:
+  - Running: face landmarks (nose Y bobbing)
+  - Boxing: body pose joints
 - Rendering: SceneKit (third-person forest chunks + heading-based navigation)
 - Control input: camera head sway / keyboard `WASD` / mixed
 - Settings persistence: SwiftData
-- Calibration (required):
-  - Running: must pass upper-body calibration to start
-  - Boxing: must pass upper-body guard calibration to start punch detection
-- Debug (optional): pose overlay + arm joint confidence overlay
+- Calibration (required): Boxing guard calibration (required for punch detection)
+- Debug (optional):
+  - Running: face box + nose overlay
+  - Boxing: pose overlay + arm joint confidence overlay
 - Ending a session: close the Exercise window (the Home window will return)
 
 More details: [business-logic.md](.github/docs/business-logic.md).

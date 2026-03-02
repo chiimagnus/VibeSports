@@ -10,14 +10,15 @@ VibeSports 是一款面向桌面场景的 macOS 原生运动游戏：用户在�
 
 核心体验：
 - 在 Home 窗口选择运动场景（Running / Boxing），并点击 Start 进入 Exercise 窗口
-- Exercise 窗口开始前必须校准（Running：上半身；Boxing：上半身护脸姿势）
+- Running：进入 Exercise 后直接开始（head-only）
+- Boxing：进入 Exercise 后需要完成上半身护脸（guard）校准，才会开始拳法事件识别
 - 动作被实时识别并转成可观测的运动反馈与调试信号
 - 会话结束后立即回到工作状态
 
 输入与输出：
-- 输入：摄像头视频帧、用户动作（姿态关键点）、可选键盘输入
+- 输入：摄像头视频帧、用户动作信号（Running：面部关键点；Boxing：人体姿态关键点）、可选键盘输入
 - 输出：
-  - Running：实时运动指标（步数/步频/速度/动作质量）与场景反馈（角色移动/转向/动画）
+  - Running：步数 + 步频（SPM）与场景反馈（角色移动/转向/动画）
   - Boxing：拳法事件与计数 + 全屏摄像头预览与调试叠层
 
 ## 核心业务能力（Capabilities）
@@ -26,34 +27,36 @@ VibeSports 是一款面向桌面场景的 macOS 原生运动游戏：用户在�
 - 用户价值：快速进入/退出运动状态，不打断主任务节奏
 - 触发方式：用户在 Home 选择场景并点击 Start 进入 Exercise；关闭 Exercise 窗口返回 Home
 - 输入：用户操作、摄像头权限状态
-- 输出：会话状态切换（Idle → Calibrating → Running）与窗口切换（Home ↔ Exercise）
+- 输出：会话状态切换（Idle → Running；仅 Boxing 会进入 Calibrating）与窗口切换（Home ↔ Exercise）
 - 关键边界与失败方式：
   - 未授权摄像头时无法进入 Running/Boxing，用户会看到权限提示
   - Home 不占用摄像头资源；摄像头仅在 Exercise 窗口启动
 
-### 2) 姿态识别与动作信号提取
+### 2) 视觉识别与动作信号提取
 - 用户价值：让“真实动作”成为游戏输入
 - 触发方式：会话开始后持续处理帧
 - 输入：摄像头帧
-- 输出：姿态估计结果（可用/不可用）与基础动作信号
-- 关键边界与失败方式：低光、遮挡、出画会导致姿态丢失，表现为输入衰减或暂停
-  - 可观测性：可通过调试叠层查看关键关节的置信度与“稳定化后是否输出”，用于定位是“Vision 未输出”还是“阈值/稳定器过滤”
+- 输出：视觉估计结果（可用/不可用）与基础动作信号
+- 关键边界与失败方式：低光、遮挡、出画会导致视觉估计丢失，表现为输入衰减或暂停
+  - 可观测性：可通过调试叠层查看关键点（Boxing：关节；Running：面部框/鼻尖）的置信度与输出状态，用于定位是“Vision 未输出”还是“阈值/稳定器过滤”
 
-### 3) 校准（Calibration）门禁（必须通过）
-- 用户价值：让阈值具备尺度基准，减少“距离变化导致判定漂移”，并提供上手引导
-- 触发方式：Start 后进入 Calibrating 状态
+### 3) 校准（Calibration）门禁（仅 Boxing）
+- 用户价值：为拳法识别建立姿势门禁与稳定化基准，并提供上手引导
+- 触发方式：Boxing Start 后进入 Calibrating 状态
 - 输入：Pose + 时间窗口
 - 输出：进度（0~1）、失败原因（缺失关节/不稳定/太近/太远等）、baseline（例如肩宽尺度）
 - 关键边界与失败方式：
-  - Running：必须校准通过（上半身）才能开始驱动 3D 场景
+  - Running：不需要校准门禁；直接进入 head-only 检测与场景驱动
   - Boxing：必须通过上半身护脸（guard）校准，且通过后才能开始识别拳法事件
 
-### 4) Running：指标计算与 3D 场景驱动
-- 用户价值：把姿态转成可理解的运动反馈并驱动沉浸场景
-- 触发方式：校准通过后每次姿态更新
-- 输入：姿态信号、历史窗口、校准 baseline
-- 输出：步数、步频、速度、动作质量、近距离模式判定 + 统一 RunnerMotion
-- 关键边界与失败方式：异常动作会降低质量分，指标可能短时波动；姿态丢失时指标衰减
+### 4) Running：head-only 指标计算与 3D 场景驱动
+- 用户价值：用低门槛输入（只检测头部）驱动无限场景，强调“快速开始”
+- 触发方式：Running 会话开始后每次 head observation 更新
+- 输入：面部关键点（nose.y）+ 面部框尺度（用于归一化）+ 历史窗口
+- 输出：步数、步频（SPM）、派生速度（用于场景推进）+ 统一 RunnerMotion
+- 关键边界与失败方式：
+  - 面部/鼻尖丢失（遮挡、出画、低光）会导致步频短暂保持并衰减，避免 UI/场景瞬时抖动
+  - 与摄像头距离变化会影响面部框尺度；Running 使用“baseline 尺度平滑”降低漂移
 
 ### 5) Boxing：拳法事件识别与 Debug UI
 - 用户价值：快速跑通“上半身入镜”的拳击体验，并提供可观测与可调参的调试面板
@@ -80,8 +83,8 @@ VibeSports 是一款面向桌面场景的 macOS 原生运动游戏：用户在�
 
 ### Journey A：Running（主流程）
 1. 用户在 Home 选择 Running 并点击 Start 进入 Exercise。
-2. Exercise 打开后进入校准态；校准通过后进入 Running。
-3. 姿态被持续估计并转为运动指标与控制信号。
+2. Exercise 打开后直接开始 head-only 检测。
+3. 视觉估计结果被持续转换为步数/步频与控制信号。
 4. 3D 场景按速度与转向实时响应，用户获得即时反馈。
 5. 用户关闭 Exercise 窗口，会话停止并释放资源。
 
@@ -110,30 +113,34 @@ flowchart LR
   B --> C[点击 Start 进入 Exercise]
   C --> D{摄像头可用?}
   D -->|否| E[提示权限/降级输入]
-  D -->|是| F[校准 Calibrating]
-  F -->|通过| G[Running/Boxing 处理器]
+  D -->|是| K{场景类型?}
+  K -->|Running| R[Running: face landmarks → head-only steps/cadence]
+  K -->|Boxing| F[Boxing: guard 校准 Calibrating]
+  F -->|通过| P[Boxing: pose → punch events]
   F -->|未通过| F
-  E --> H[键盘或混合输入（Running 调试）]
-  H --> G
-  G --> I[用户关闭 Exercise 窗口]
+  E --> H[键盘或混合输入（联调）]
+  H --> M[3D 场景/Debug UI]
+  R --> M
+  P --> M
+  M --> I[用户关闭 Exercise 窗口]
   I --> J[停止检测并释放资源]
   J --> A
 ```
 
 ## 业务规则与约束（Rules & Constraints）
 
-- 会话状态遵循 Idle → Calibrating → Running，结束会话必须释放摄像头资源。
-- Running 必须校准通过（上半身）才能进入 Running。
+- 会话状态遵循 Idle → Running（仅 Boxing 会进入 Calibrating），结束会话必须释放摄像头资源。
+- Running 不需要校准门禁（head-only）。
 - Boxing 必须校准通过（上半身护脸/guard）才能开始识别拳法事件。
 - 姿态不可用时不应阻塞主线程，应降级为可恢复状态。
-- 场景速度与动画节奏应同源，避免“速度快慢与动画不一致”。
+- Running 动画播放速度不随步频调速（保持固定），场景推进由检测到的步频/派生速度驱动。
 - 设置持久化属于用户偏好层，不应影响会话核心可用性。
 - 默认面向短时运动场景，强调低启动成本与快速退出。
 
 ## 产物与可见结果（Outputs）
 
 用户可见结果：
-- Running：步数、步频、速度、动作质量；角色移动、转向、动画变化、场景推进
+- Running：步数、步频（SPM）；角色移动、转向、动画变化、场景推进（速度为内部派生量）
 - Boxing：拳法事件与计数；全屏摄像头预览；调试面板信息
 - 状态反馈：权限提示、可用输入源、会话状态
 
@@ -144,11 +151,11 @@ flowchart LR
 ## 术语表（Glossary）
 
 - 会话（Session）：一次从开始到结束的运动过程。
-- 姿态估计（Pose Estimation）：从视频帧提取人体关键点。
-- 动作质量（Movement Quality）：用于判断当前动作是否稳定有效的评分。
+- 姿态估计（Pose Estimation）：从视频帧提取人体关键点（Boxing）。
+- 面部关键点（Face Landmarks）：从视频帧提取面部特征点（Running）。
 - 混合输入（Mixed Input）：摄像头输入与键盘输入共同作用。
 - 场景推进（World Progression）：角色随输入在场景中持续前进和转向。
-- 校准（Calibration）：开始前的姿态与尺度基准建立过程，未通过不可进入 Running/Boxing。
+- 校准（Calibration）：开始前的姿势门禁与尺度基准建立过程（仅 Boxing 需要）。
 
 ## 入口索引（Entry Index）
 

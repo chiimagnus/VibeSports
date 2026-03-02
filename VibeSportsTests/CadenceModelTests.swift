@@ -17,18 +17,23 @@ final class CadenceModelTests: XCTestCase {
 
     func test_timeoutResetsCadenceToZero() {
         var model = CadenceModel()
+        model.configuration.holdDuration = 0
+        model.configuration.decayDuration = 0
+        model.configuration.maxStepInterval = 1.0
         let base = Date(timeIntervalSince1970: 0)
 
         model.ingestStep(now: base)
         model.ingestStep(now: base.addingTimeInterval(0.5))
         XCTAssertGreaterThan(model.cadenceStepsPerSecond, 0)
 
-        model.update(now: base.addingTimeInterval(1.6))
+        model.update(now: base.addingTimeInterval(1.6), isTracking: true)
         XCTAssertEqual(model.cadenceStepsPerSecond, 0, accuracy: 0.0001)
     }
 
     func test_filtersTooFastIntervalsAndResetsOnTooSlowIntervals() {
         var model = CadenceModel()
+        model.configuration.holdDuration = 0
+        model.configuration.decayDuration = 0
         let base = Date(timeIntervalSince1970: 0)
 
         model.ingestStep(now: base)
@@ -45,6 +50,10 @@ final class CadenceModelTests: XCTestCase {
     func test_intervalDrivenIngestMatchesTimestampDrivenIngest() {
         var timestampModel = CadenceModel()
         var intervalModel = CadenceModel()
+        timestampModel.configuration.holdDuration = 0
+        timestampModel.configuration.decayDuration = 0
+        intervalModel.configuration.holdDuration = 0
+        intervalModel.configuration.decayDuration = 0
 
         let base = Date(timeIntervalSince1970: 0)
         let timestamps: [TimeInterval] = [0.0, 0.55, 1.00, 1.52, 2.05]
@@ -64,5 +73,32 @@ final class CadenceModelTests: XCTestCase {
             timestampModel.cadenceStepsPerSecond,
             accuracy: 0.0001
         )
+    }
+
+    func test_lostTrackingHoldsThenDecaysToZero() {
+        var model = CadenceModel()
+        model.configuration.holdDuration = 1.0
+        model.configuration.decayDuration = 1.0
+        let base = Date(timeIntervalSince1970: 0)
+
+        model.ingestStep(now: base)
+        model.ingestStep(now: base.addingTimeInterval(0.5))
+        let startCadence = model.cadenceStepsPerSecond
+        XCTAssertGreaterThan(startCadence, 0)
+
+        // Mark tracking as lost.
+        model.update(now: base.addingTimeInterval(0.6), isTracking: false)
+
+        // During hold window, cadence stays constant.
+        model.update(now: base.addingTimeInterval(1.4), isTracking: false)
+        XCTAssertEqual(model.cadenceStepsPerSecond, startCadence, accuracy: 0.0001)
+
+        // After hold, cadence decays toward 0.
+        model.update(now: base.addingTimeInterval(1.8), isTracking: false)
+        XCTAssertLessThan(model.cadenceStepsPerSecond, startCadence)
+        XCTAssertGreaterThan(model.cadenceStepsPerSecond, 0)
+
+        model.update(now: base.addingTimeInterval(2.7), isTracking: false)
+        XCTAssertEqual(model.cadenceStepsPerSecond, 0, accuracy: 0.0001)
     }
 }

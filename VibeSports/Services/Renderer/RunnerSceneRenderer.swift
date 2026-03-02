@@ -18,7 +18,6 @@ final class RunnerSceneRenderer: ObservableObject {
 
         struct Cadence: Sendable, Equatable {
             var strideLengthMetersPerStep: Double
-            var stepsPerLoop: Double
         }
 
         var runner: Runner
@@ -29,16 +28,12 @@ final class RunnerSceneRenderer: ObservableObject {
         static let `default` = Tuning(
             runner: Runner(scale: 0.01),
             cadence: Cadence(
-                strideLengthMetersPerStep: 1.05,
-                stepsPerLoop: 2.0
+                strideLengthMetersPerStep: 1.05
             ),
             blender: RunnerAnimationBlender.Configuration(
                 idleThresholdMetersPerSecond: 0.08,
                 minRunSpeedMetersPerSecond: 1.10,
-                maxRunSpeedMetersPerSecond: 2.90,
-                baseSpeedMetersPerSecond: 1.80,
-                minPlaybackRate: 0.35,
-                maxPlaybackRate: 3.20
+                maxRunSpeedMetersPerSecond: 2.90
             ),
             speedSmoothingAlpha: 0.30
         )
@@ -301,10 +296,7 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
         let synthesizedCadence = strideLength > 0.0001
             ? displayedSpeedMetersPerSecond / strideLength
             : displayedCadenceStepsPerSecond
-        updateRunnerAnimation(
-            speedMetersPerSecond: displayedSpeedMetersPerSecond,
-            cadenceStepsPerSecond: max(displayedCadenceStepsPerSecond, synthesizedCadence)
-        )
+        updateRunnerAnimation(speedMetersPerSecond: displayedSpeedMetersPerSecond)
 
         navigationIntegrator.configuration.maxYawSpeedRadiansPerSecond = Defaults.maxYawSpeedRadiansPerSecond
         navigationIntegrator.configuration.maxForwardSpeedMetersPerSecond =
@@ -520,8 +512,7 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
     }
 
     private func updateRunnerAnimation(
-        speedMetersPerSecond: Double,
-        cadenceStepsPerSecond: Double
+        speedMetersPerSecond: Double
     ) {
         guard let idlePlayer, let slowRunPlayer, let fastRunPlayer else { return }
 
@@ -533,18 +524,9 @@ private final class RunnerSceneAnimator: NSObject, SCNSceneRendererDelegate {
         slowRunPlayer.blendFactor = blend.slowRunWeight
         fastRunPlayer.blendFactor = blend.fastRunWeight
 
-        let stepsPerLoop = max(0.1, tuning.cadence.stepsPerLoop)
-        let cadenceRate = cadenceStepsPerSecond / stepsPerLoop
-
-        func rate(for player: SCNAnimationPlayer) -> Double {
-            guard cadenceRate > 0 else { return 1 }
-            let duration = max(0.0001, player.animation.duration)
-            let raw = cadenceRate * duration
-            return min(tuning.blender.maxPlaybackRate, max(tuning.blender.minPlaybackRate, raw))
-        }
-
-        slowRunPlayer.speed = rate(for: slowRunPlayer)
-        fastRunPlayer.speed = rate(for: fastRunPlayer)
+        idlePlayer.speed = 1.0
+        slowRunPlayer.speed = 1.0
+        fastRunPlayer.speed = 1.0
     }
 
     var tuning: RunnerSceneRenderer.Tuning {

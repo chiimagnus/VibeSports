@@ -5,7 +5,8 @@ struct CadenceModel: Sendable, Equatable {
         var minStepInterval: TimeInterval = 0.15
         var maxStepInterval: TimeInterval = 1.5
         var smoothingAlpha: Double = 0.25
-        var timeoutToZero: TimeInterval = 1.0
+        var holdDuration: TimeInterval = 0.8
+        var decayDuration: TimeInterval = 0.8
     }
 
     var configuration = Configuration()
@@ -14,10 +15,14 @@ struct CadenceModel: Sendable, Equatable {
     var cadenceStepsPerMinute: Double { cadenceStepsPerSecond * 60.0 }
 
     private var lastStepTime: Date?
+    private var lostTrackingSince: Date?
+    private var cadenceAtTrackingLoss: Double?
 
     mutating func reset() {
         cadenceStepsPerSecond = 0
         lastStepTime = nil
+        lostTrackingSince = nil
+        cadenceAtTrackingLoss = nil
     }
 
     mutating func ingestStep(now: Date) {
@@ -35,13 +40,49 @@ struct CadenceModel: Sendable, Equatable {
         lastStepTime = now
     }
 
-    mutating func update(now: Date) {
+    /// Updates cadence for "no step" and "lost tracking" conditions.
+    ///
+    /// - `isTracking` should represent whether the upstream detector has a valid subject signal.
+    mutating func update(now: Date, isTracking: Bool) {
+        if isTracking {
+            lostTrackingSince = nil
+            cadenceAtTrackingLoss = nil
+            updateNoStepWhileTracking(now: now)
+            return
+        }
+
+        if lostTrackingSince == nil {
+            lostTrackingSince = now
+            cadenceAtTrackingLoss = cadenceStepsPerSecond
+        }
+
+        let hold = max(0, configuration.holdDuration)
+        let decay = max(0, configuration.decayDuration)
+
+        let elapsed = now.timeIntervalSince(lostTrackingSince ?? now)
+        let startValue = max(0, cadenceAtTrackingLoss ?? cadenceStepsPerSecond)
+
+        if elapsed <= hold {
+            cadenceStepsPerSecond = startValue
+            return
+        }
+
+        guard decay > 0 else {
+            cadenceStepsPerSecond = 0
+            return
+        }
+
+        let t = min(1, max(0, (elapsed - hold) / decay))
+        cadenceStepsPerSecond = (1 - t) * startValue
+    }
+
+    private mutating func updateNoStepWhileTracking(now: Date) {
         guard let lastStepTime else {
             cadenceStepsPerSecond = 0
             return
         }
 
-        if now.timeIntervalSince(lastStepTime) >= configuration.timeoutToZero {
+        if now.timeIntervalSince(lastStepTime) >= configuration.maxStepInterval {
             cadenceStepsPerSecond = 0
         }
     }

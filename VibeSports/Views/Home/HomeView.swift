@@ -83,10 +83,21 @@ struct HomeView: View {
         }
     }
 
+    @ViewBuilder
     private var calibrationPreview: some View {
         switch effectiveSelectedKind {
         case .running:
-            CalibrationSilhouettePreview(kind: .runningUpperBody)
+            VStack(spacing: 14) {
+                Image(systemName: "face.smiling")
+                    .font(.system(size: 72, weight: .regular))
+                    .foregroundStyle(.secondary)
+                Text("Running (Head-only)")
+                    .font(.title2.bold())
+                Text("Use your head bob to count steps and drive the 3D scene.")
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 420)
+            }
         case .boxing:
             CalibrationSilhouettePreview(kind: .boxingGuard)
         }
@@ -95,7 +106,7 @@ struct HomeView: View {
     private func subtitle(for kind: ExerciseKind) -> String {
         switch kind {
         case .running:
-            return "Upper-body calibration → drive 3D scene"
+            return "Head-only detection → drive 3D scene"
         case .boxing:
             return "Guard calibration → punch events + debug UI"
         }

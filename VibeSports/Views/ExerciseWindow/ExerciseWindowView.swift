@@ -35,12 +35,6 @@ struct ExerciseWindowView: View {
             )
             .frame(width: 1, height: 1)
             .opacity(0.01)
-
-            if viewModel.sessionState.kind == .running && !viewModel.sessionState.isIdle {
-                if case .calibrating(let progress, let message) = viewModel.runningSession.state {
-                    RunningCalibrationOverlayView(progress: progress, message: message)
-                }
-            }
         }
         .background(.black.opacity(0.06))
         .overlay(alignment: .topLeading) {
@@ -158,7 +152,9 @@ struct ExerciseWindowView: View {
                 Text("\(kind.title) • Calibrating…")
             case .running(let kind):
                 if kind == .running {
-                    Text("Running • \(String(format: "%.1f", viewModel.runningSession.metrics.speedKilometersPerHour)) km/h")
+                    let steps = viewModel.runningSession.metrics.steps
+                    let spm = Int(viewModel.runningSession.metrics.cadenceStepsPerMinute.rounded())
+                    Text("Running • \(steps) steps • \(spm) spm")
                 } else {
                     Text("\(kind.title) • Running")
                 }
@@ -179,26 +175,33 @@ struct ExerciseWindowView: View {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .strokeBorder(.white.opacity(0.12))
             }
-            .overlay {
-                if viewModel.showPoseOverlay {
-                    ZStack(alignment: .topLeading) {
-                        let pose = viewModel.poseStabilizationEnabled ? viewModel.stabilizedPose : viewModel.latestPose
-                        if let pose {
-                            PoseOverlayView(pose: pose, isMirroredHorizontally: viewModel.mirrorCamera)
-                        }
+                .overlay {
+                    if viewModel.showPoseOverlay {
+                        ZStack(alignment: .topLeading) {
+                            if viewModel.sessionState.kind == .boxing {
+                                let pose = viewModel.poseStabilizationEnabled ? viewModel.stabilizedPose : viewModel.latestPose
+                                if let pose {
+                                    PoseOverlayView(pose: pose, isMirroredHorizontally: viewModel.mirrorCamera)
+                                }
 
-                        if viewModel.showPoseArmDebugOverlay {
-                            PoseArmDebugOverlayView(
-                                rawPose: viewModel.latestPose,
-                                stabilizedPose: viewModel.poseStabilizationEnabled ? viewModel.stabilizedPose : nil,
-                                isStabilizationEnabled: viewModel.poseStabilizationEnabled
-                            )
-                            .padding(8)
+                                if viewModel.showPoseArmDebugOverlay {
+                                    PoseArmDebugOverlayView(
+                                        rawPose: viewModel.latestPose,
+                                        stabilizedPose: viewModel.poseStabilizationEnabled ? viewModel.stabilizedPose : nil,
+                                        isStabilizationEnabled: viewModel.poseStabilizationEnabled
+                                    )
+                                    .padding(8)
+                                }
+                            } else {
+                                RunningHeadOverlayView(
+                                    observation: viewModel.latestRunningHeadObservation,
+                                    isMirroredHorizontally: viewModel.mirrorCamera
+                                )
+                            }
                         }
                     }
                 }
-            }
-            .frame(width: 260, height: 180)
+                .frame(width: 260, height: 180)
             .shadow(color: .black.opacity(0.25), radius: 18, y: 10)
         default:
             RoundedRectangle(cornerRadius: 14, style: .continuous)
