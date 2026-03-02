@@ -9,6 +9,7 @@ final class ExerciseHubViewModel: ObservableObject {
     @Published private(set) var sessionState: ExerciseSessionState = .idle(selectedKind: .running)
     @Published private(set) var latestPose: Pose?
     @Published private(set) var boxingSession: BoxingSessionViewModel?
+    @Published private(set) var latestRunningHeadObservation: RunningHeadObservation?
 
     @Published private(set) var showPoseOverlay: Bool = false
     @Published private(set) var mirrorCamera: Bool = true
@@ -70,11 +71,17 @@ final class ExerciseHubViewModel: ObservableObject {
         switch kind {
         case .running:
             boxingSession = nil
+            latestPose = nil
+            stabilizedPose = nil
+            latestRunningHeadObservation = nil
             cameraSession.setAnalysisMode(.runningHeadOnly)
             runningSession.start()
             sessionState = .running(kind: .running)
         case .boxing:
             boxingSession = BoxingSessionViewModel(clock: clock)
+            latestPose = nil
+            stabilizedPose = nil
+            latestRunningHeadObservation = nil
             cameraSession.setAnalysisMode(.boxingPose)
             sessionState = .calibrating(kind: kind)
         }
@@ -105,6 +112,7 @@ final class ExerciseHubViewModel: ObservableObject {
         boxingSession = nil
         latestPose = nil
         stabilizedPose = nil
+        latestRunningHeadObservation = nil
     }
 
     private func loadSettings() {
@@ -191,6 +199,7 @@ final class ExerciseHubViewModel: ObservableObject {
     }
 
     private func handleRunningHead(_ observation: RunningHeadObservation?) {
+        latestRunningHeadObservation = observation
         guard !sessionState.isIdle, sessionState.kind == .running else { return }
         runningSession.ingest(headObservation: observation)
     }

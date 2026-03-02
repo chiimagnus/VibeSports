@@ -175,26 +175,33 @@ struct ExerciseWindowView: View {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .strokeBorder(.white.opacity(0.12))
             }
-            .overlay {
-                if viewModel.showPoseOverlay {
-                    ZStack(alignment: .topLeading) {
-                        let pose = viewModel.poseStabilizationEnabled ? viewModel.stabilizedPose : viewModel.latestPose
-                        if let pose {
-                            PoseOverlayView(pose: pose, isMirroredHorizontally: viewModel.mirrorCamera)
-                        }
+                .overlay {
+                    if viewModel.showPoseOverlay {
+                        ZStack(alignment: .topLeading) {
+                            if viewModel.sessionState.kind == .boxing {
+                                let pose = viewModel.poseStabilizationEnabled ? viewModel.stabilizedPose : viewModel.latestPose
+                                if let pose {
+                                    PoseOverlayView(pose: pose, isMirroredHorizontally: viewModel.mirrorCamera)
+                                }
 
-                        if viewModel.showPoseArmDebugOverlay {
-                            PoseArmDebugOverlayView(
-                                rawPose: viewModel.latestPose,
-                                stabilizedPose: viewModel.poseStabilizationEnabled ? viewModel.stabilizedPose : nil,
-                                isStabilizationEnabled: viewModel.poseStabilizationEnabled
-                            )
-                            .padding(8)
+                                if viewModel.showPoseArmDebugOverlay {
+                                    PoseArmDebugOverlayView(
+                                        rawPose: viewModel.latestPose,
+                                        stabilizedPose: viewModel.poseStabilizationEnabled ? viewModel.stabilizedPose : nil,
+                                        isStabilizationEnabled: viewModel.poseStabilizationEnabled
+                                    )
+                                    .padding(8)
+                                }
+                            } else {
+                                RunningHeadOverlayView(
+                                    observation: viewModel.latestRunningHeadObservation,
+                                    isMirroredHorizontally: viewModel.mirrorCamera
+                                )
+                            }
                         }
                     }
                 }
-            }
-            .frame(width: 260, height: 180)
+                .frame(width: 260, height: 180)
             .shadow(color: .black.opacity(0.25), radius: 18, y: 10)
         default:
             RoundedRectangle(cornerRadius: 14, style: .continuous)

@@ -154,18 +154,25 @@ struct ExerciseHubView: View {
                 .overlay {
                     if viewModel.showPoseOverlay {
                         ZStack(alignment: .topLeading) {
-                            let pose = viewModel.poseStabilizationEnabled ? viewModel.stabilizedPose : viewModel.latestPose
-                            if let pose {
-                                PoseOverlayView(pose: pose, isMirroredHorizontally: viewModel.mirrorCamera)
-                            }
+                            if viewModel.sessionState.kind == .boxing {
+                                let pose = viewModel.poseStabilizationEnabled ? viewModel.stabilizedPose : viewModel.latestPose
+                                if let pose {
+                                    PoseOverlayView(pose: pose, isMirroredHorizontally: viewModel.mirrorCamera)
+                                }
 
-                            if viewModel.showPoseArmDebugOverlay {
-                                PoseArmDebugOverlayView(
-                                    rawPose: viewModel.latestPose,
-                                    stabilizedPose: viewModel.poseStabilizationEnabled ? viewModel.stabilizedPose : nil,
-                                    isStabilizationEnabled: viewModel.poseStabilizationEnabled
+                                if viewModel.showPoseArmDebugOverlay {
+                                    PoseArmDebugOverlayView(
+                                        rawPose: viewModel.latestPose,
+                                        stabilizedPose: viewModel.poseStabilizationEnabled ? viewModel.stabilizedPose : nil,
+                                        isStabilizationEnabled: viewModel.poseStabilizationEnabled
+                                    )
+                                    .padding(8)
+                                }
+                            } else {
+                                RunningHeadOverlayView(
+                                    observation: viewModel.latestRunningHeadObservation,
+                                    isMirroredHorizontally: viewModel.mirrorCamera
                                 )
-                                .padding(8)
                             }
                         }
                     }
