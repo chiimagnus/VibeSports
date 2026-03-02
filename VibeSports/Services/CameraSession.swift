@@ -13,6 +13,7 @@ protocol CameraSessionProtocol: AnyObject, ObservableObject {
 
     var captureSession: AVCaptureSession { get }
     var posePublisher: AnyPublisher<Pose?, Never> { get }
+    var runningHeadPublisher: AnyPublisher<RunningHeadObservation?, Never> { get }
 
     func start() async
     func stop()
@@ -20,6 +21,11 @@ protocol CameraSessionProtocol: AnyObject, ObservableObject {
 
 @MainActor
 final class CameraSession: NSObject, ObservableObject {
+    enum AnalysisMode: Sendable, Equatable {
+        case runningHeadOnly
+        case boxingPose
+    }
+
     enum State: Equatable {
         case idle
         case requestingAuthorization
@@ -33,8 +39,10 @@ final class CameraSession: NSObject, ObservableObject {
     let captureSession = AVCaptureSession()
 
     var onPose: ((Pose?) -> Void)?
+    var onRunningHead: ((RunningHeadObservation?) -> Void)?
 
     private let poseSubject = PassthroughSubject<Pose?, Never>()
+    private let runningHeadSubject = PassthroughSubject<RunningHeadObservation?, Never>()
 
     private let outputQueue = DispatchQueue(label: "com.chiimagnus.vibesports.camera.output")
     private let sessionQueue = DispatchQueue(label: "com.chiimagnus.vibesports.camera.session")
@@ -43,8 +51,14 @@ final class CameraSession: NSObject, ObservableObject {
 
     private var isConfigured = false
 
-    init(poseDetector: any PoseDetecting = PoseDetector()) {
-        self.outputHandler = OutputHandler(poseDetector: poseDetector)
+    init(
+        poseDetector: any PoseDetecting = PoseDetector(),
+        runningHeadDetector: any RunningHeadDetecting = RunningHeadDetector()
+    ) {
+        self.outputHandler = OutputHandler(
+            poseDetector: poseDetector,
+            runningHeadDetector: runningHeadDetector
+        )
         super.init()
     }
 
@@ -80,6 +94,7 @@ final class CameraSession: NSObject, ObservableObject {
 
     func stop() {
         outputHandler.isEnabled = false
+        outputHandler.setAnalysisMode(.boxingPose)
         let session = captureSession
         sessionQueue.async {
             session.stopRunning()
@@ -122,6 +137,18 @@ final class CameraSession: NSObject, ObservableObject {
                 self.poseSubject.send(pose)
             }
         }
+
+        outputHandler.onRunningHead = { [weak self] observation in
+            guard let self else { return }
+            Task { @MainActor in
+                self.onRunningHead?(observation)
+                self.runningHeadSubject.send(observation)
+            }
+        }
+    }
+
+    func setAnalysisMode(_ mode: AnalysisMode) {
+        outputHandler.setAnalysisMode(mode)
     }
 }
 
@@ -135,6 +162,10 @@ extension CameraSession: CameraSessionProtocol {
     var posePublisher: AnyPublisher<Pose?, Never> {
         poseSubject.eraseToAnyPublisher()
     }
+
+    var runningHeadPublisher: AnyPublisher<RunningHeadObservation?, Never> {
+        runningHeadSubject.eraseToAnyPublisher()
+    }
 }
 
 enum CameraSessionError: Error {
@@ -145,24 +176,34 @@ enum CameraSessionError: Error {
 
 private final class OutputHandler: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     var onPose: ((Pose?) -> Void)?
+    var onRunningHead: ((RunningHeadObservation?) -> Void)?
     var processingInterval: CFTimeInterval = 1.0 / 20.0
 
     private let poseDetector: any PoseDetecting
+    private let runningHeadDetector: any RunningHeadDetecting
     private struct State {
         var isEnabled = false
         var lastProcessTime: CFTimeInterval = 0
+        var analysisMode: CameraSession.AnalysisMode = .boxingPose
     }
 
     private let lock = OSAllocatedUnfairLock(initialState: State())
 
-    init(poseDetector: any PoseDetecting) {
+    init(poseDetector: any PoseDetecting, runningHeadDetector: any RunningHeadDetecting) {
         self.poseDetector = poseDetector
+        self.runningHeadDetector = runningHeadDetector
         super.init()
     }
 
     var isEnabled: Bool {
         get { lock.withLock { $0.isEnabled } }
         set { lock.withLock { $0.isEnabled = newValue } }
+    }
+
+    func setAnalysisMode(_ mode: CameraSession.AnalysisMode) {
+        lock.withLock { state in
+            state.analysisMode = mode
+        }
     }
 
     func captureOutput(
@@ -181,7 +222,16 @@ private final class OutputHandler: NSObject, AVCaptureVideoDataOutputSampleBuffe
         guard shouldProcess else { return }
 
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
-        let pose = try? poseDetector.detect(in: pixelBuffer)
-        onPose?(pose)
+
+        let mode = lock.withLock { $0.analysisMode }
+        switch mode {
+        case .boxingPose:
+            let pose = try? poseDetector.detect(in: pixelBuffer)
+            onPose?(pose)
+
+        case .runningHeadOnly:
+            let observation = try? runningHeadDetector.detect(in: pixelBuffer)
+            onRunningHead?(observation)
+        }
     }
 }
