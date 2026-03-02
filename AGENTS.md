@@ -2,7 +2,7 @@
 
 ## 项目概览
 
-VibeSports 是一个 macOS 原生的「摄像头运动游戏」：用户开始会话后，摄像头采集视频帧 → Apple Vision 姿态估计 → 计算速度/步数/热量/出拳事件 → 驱动 SceneKit 无限场景渲染（Running）或 Debug 预览（Boxing）。UI 使用 SwiftUI；业务与状态按 MVVM 组织；事件流/异步用 Combine；设置持久化用 SwiftData。会话通常围绕 `Idle/Calibrating/Running/Stopped` 状态切换，结束会话需停止检测并释放摄像头资源。当前工程配置为 **macOS 14+ / Swift 6**。
+VibeSports 是一个 macOS 原生的「摄像头运动游戏」：用户开始会话后，摄像头采集视频帧 → Apple Vision 视觉估计（Running：面部关键点；Boxing：人体姿态）→ 计算步数/步频/热量/出拳事件 → 驱动 SceneKit 无限场景渲染（Running）或 Debug 预览（Boxing）。UI 使用 SwiftUI；业务与状态按 MVVM 组织；事件流/异步用 Combine；设置持久化用 SwiftData。会话通常围绕 `Idle/Calibrating/Running` 状态切换（Calibrating 仅 Boxing），结束会话需停止检测并释放摄像头资源。当前工程配置为 **macOS 14+ / Swift 6**。
 
 ## 项目结构与模块组织
 
@@ -47,6 +47,7 @@ VibeSports/Services/FeatureX/
 ## 常见修改点
 
 - 姿态检测：`VibeSports/Services/PoseDetector.swift` 与 `VibeSports/Models/Pose/`
+- Running 头部检测：`VibeSports/Services/Running/RunningHeadDetector.swift` 与 `VibeSports/Models/Running/`
 - 摄像头采集：`VibeSports/Services/CameraSession.swift`
 - 3D 渲染：`VibeSports/Services/Renderer/` 与 `VibeSports/Views/Running/RunnerSceneView.swift`
 - 运动指标：`VibeSports/Models/Running/` 与 `VibeSports/ViewModels/Running/RunningSessionViewModel.swift`
