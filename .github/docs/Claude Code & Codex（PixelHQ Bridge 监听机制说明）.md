@@ -2,6 +2,8 @@
 
 本文档描述 PixelHQ Bridge（`pixelhq`）如何“检测”Claude Code 与 Codex CLI，以及它实际监听/解析的本地会话日志来源、数据流与隐私剥离策略。
 
+> 说明：PixelHQ Bridge 是独立仓库（不在本 VibeSports 仓库内）。本文出现的 `src/*.ts` 路径均指 PixelHQ Bridge 仓库的源码结构。
+
 ## 一句话结论：这里的“检测”是什么
 
 - **Claude Code 检测**：是否能解析到 Claude 配置目录，且存在 `projects/`（会话 JSONL 落盘目录）。实现见 `src/config.ts`。

@@ -69,8 +69,8 @@ VibeSports/Services/FeatureX/
 
 - **架构模式**：MVVM (Model-View-ViewModel)
 - **编程范式**：Protocol-Oriented Programming (面向协议编程)
-- **UI 框架**：SwiftUI、RealityKit
-- **响应式/状态管理**：Observation（`@Observable` / `@Bindable`），必要时使用 Swift Concurrency；仅在需要 Publisher 管道时才引入 Combine
+- **UI 框架**：SwiftUI、SceneKit
+- **响应式/状态管理**：`ObservableObject` + `@Published`（SwiftUI 绑定）+ Combine（Publisher 管道）；少量使用 Swift Concurrency（按需）
 - **数据持久化**：SwiftData
 - **语言版本**：Swift 6.0+
 - **支持平台**：macOS 14.0+
@@ -117,15 +117,18 @@ VibeSports/Services/FeatureX/
 
 ### ViewModel 规范
 
-**统一使用 `@Observable`（iOS 17+ / macOS 14.0+），不使用 `ObservableObject` + `@Published`。**
+**当前项目以 `ObservableObject` + `@Published` 为主（配合 Combine）。**
+
+> 若未来计划迁移到 `@Observable` / `@Bindable`，请在一个模块内保持单一状态范式，避免同一状态被重复持有（例如同时存在 `@Published` 与 `@Observable` 的两套源）。
 
 **实例化策略：**
 
-- ✅ 按需创建：`@State`
-- ✅ 依赖注入：`.environment()`
-- ✅ 父子共享：父视图创建，通过 `@Bindable` 传递
+- ✅ ViewModel 由 View 持有：`@StateObject`
+- ✅ 观察外部注入的对象：`@ObservedObject`
+- ✅ 跨多层共享的全局状态：`.environmentObject()` + `@EnvironmentObject`
+- ✅ 轻量值类型状态：`@State`
+- ✅ 依赖注入：构造器注入 / `.environmentObject()`（按需）
 - ❌ 禁止单例：`static let shared`
-- ❌ 不使用：`@StateObject` / `@ObservedObject` / `.environmentObject()`（这些是 `ObservableObject` 时代的 API）
 
 ---
 
